@@ -204,6 +204,14 @@ make -C docs html
 Open `docs/_build/html/index.html` after the build completes. Generated docs
 are intentionally ignored by `.gitignore`.
 
+The repository includes `.readthedocs.yaml` for hosted builds. Because this
+GitHub repository is private, import it through
+[Read the Docs Business](https://app.readthedocs.com/). The free
+[Read the Docs Community](https://app.readthedocs.org/) service only clones
+public repositories. Select the `main` branch and leave the configuration-file
+path at its default so Read the Docs finds `.readthedocs.yaml` in the
+repository root.
+
 The manual page can be viewed from the repository root with:
 
 ```bash
