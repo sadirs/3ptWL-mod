@@ -1,13 +1,17 @@
 # wlcf: Weak Lensing Correlation Function modeling
 
+[![Documentation Status](https://readthedocs.org/projects/wlcf/badge/?version=latest)](https://wlcf.readthedocs.io/en/latest/?badge=latest)
+
 `wlcf` is a C code for modeling weak-lensing correlation functions in
 cosmology. The current public workflow focuses on multipoles of the
 three-point correlation function (3PCF) of the weak-lensing convergence field
 using perturbation-theory, EFT, and Takahashi/Halo-model inspired bispectrum
 branches.
 
-The main documentation lives in `docs/` and can be built with Sphinx. A Unix
-manual page is also available at `docs/man/wlcf.1`.
+The documentation is published at
+[wlcf.readthedocs.io](https://wlcf.readthedocs.io/en/latest/). Its Sphinx
+sources live in `docs/`, and a Unix manual page is available at
+`docs/man/wlcf.1`.
 
 ## Authors
 
