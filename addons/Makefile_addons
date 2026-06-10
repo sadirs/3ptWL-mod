@@ -1,0 +1,90 @@
+# ----- MAKE FILE machine definitions (AddOns) -----
+# Mario A. Rodriguez-Meza, Ciudad de Mexico, 15.02.2026
+#
+#
+
+#B Set of settings
+#
+# The AddOns are switched on/off here:
+include $(MACHINES_DIR)/addons/Makefile_addons_settings
+#
+
+#B Here insert AddOns´ Makefile modules
+
+# CLASSLIB
+ifeq ($(CLASSLIBON),1)
+include $(MACHINES_DIR)/addons/class_lib/Makefile_class_lib
+endif
+#
+
+# PXD
+# For cython interfacing...
+ifeq ($(PXDON),1)
+include $(MACHINES_DIR)/addons/pxd/Makefile_pxd
+endif
+#
+
+#E Set of settings
+
+#
+# ------------------------
+# DO NOT DO ANYTHING BELOW
+# ------------------------
+#
+
+#B AddOns section
+ADDONS_ON = 1
+#
+ifeq ($(ADDONS_ON),1)
+ADDONSDIR = ../addons
+HEADERFILES = $(wildcard $(ADDONSDIR)/*.h)
+ADDONS = addons
+vpath %.c $(ADDONS)
+INCLUDES += -I$(ADDONSDIR)
+INCLUDES += -I$(ADDONSDIR)/addons_include/addons
+INCLUDES += -I$(ADDONSDIR)/addons_include
+INCLUDES += -I$(ADDONSDIR)/addons_include/general_libs
+INCLUDES += -I$(ADDONSDIR)/addons_include/include
+INCLUDES += -I$(ADDONSDIR)/addons_include/source/wlcf
+INCLUDES += -I$(ADDONSDIR)/addons_include/source/wlcfio
+INCLUDES += -I$(ADDONSDIR)/addons_include/source/startrun
+
+HEADERFILES = $(wildcard $(ADDONSDIR)/*.h)
+HEADERFILES = $(wildcard $(ADDONSDIR)/addons/*.h)
+HEADERFILES = $(wildcard $(ADDONSDIR)/addons_include/*.h)
+HEADERFILES = $(wildcard $(ADDONSDIR)/addons_include/general_libs/*.h)
+HEADERFILES = $(wildcard $(ADDONSDIR)/addons_include/include/*.h)
+HEADERFILES = $(wildcard $(ADDONSDIR)/addons_include/source/wlcf/*.h)
+HEADERFILES = $(wildcard $(ADDONSDIR)/addons_include/source/wlcfio/*.h)
+HEADERFILES = $(wildcard $(ADDONSDIR)/addons_include/source/startrun/*.h)
+
+endif
+#
+#E
+
+
+############################
+#B Special behavior settings
+# In some models or methods
+#   it will be possible to set the following flags
+
+# ADD TEMPLATE
+# set of useful default values for the...
+ifeq ($(TEMPLATE_ON),1)
+include $(MACHINES_DIR)/addons/template/Makefile_template_settings
+endif
+#
+
+#E
+############################
+
+
+############################
+#B Addendum of some not important
+#   modules or that are in
+#   development phase
+# Normally they will be switched OFF
+
+
+#E
+############################

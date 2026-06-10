@@ -1,0 +1,36 @@
+# Build artifacts
+build/
+*.o
+*.a
+wlcf
+wlcfpy.egg-info/
+python/wlcfpy.c
+python/build/
+
+# Documentation builds
+docs/_build/
+docs/man/wlcf.html
+
+# Run outputs
+Output/
+tests/Output/
+tests/Bell_outputs/
+Bell_outputs/
+tests/emulator_outputs/
+tests/emulator_usage_demo/
+tests/fittingwlcrf_outputs/
+tests/input/emulator_pk/
+tests/input/neutrino_forecast/
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# OS and browser metadata
+.DS_Store
+Thumbs.db
+*Zone.Identifier

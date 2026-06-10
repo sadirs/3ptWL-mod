@@ -1,0 +1,79 @@
+# ----- MAKE FILE machine definitions (AddOns settings) -----
+# Mario A. Rodriguez-Meza, Ciudad de Mexico, 15.02.2026
+#
+#
+
+#B Set of settings
+#
+#B Here switch on/off the AddOns´ modules
+
+$(info )
+$(info =====================================================)
+
+# CLASSLIB
+# Several I/O routines from CLASS
+CLASSLIBON = 1
+
+# PXD
+# For cython interfacing...
+ifeq ($(CLASSLIBON),1)
+PXDON = 1
+else
+$(info To compile with PXD needs CLASSLIBON = 1, deactivating...)
+PXDON = 0
+endif
+
+#E Set of settings
+
+
+############################
+#B Special behavior settings
+# In some routines/methods
+#   it will be possible to set the following flags
+
+# ADD TEMPLATE
+# set of useful default values for the unit sphere
+TEMPLATE_ON = 0
+
+#B for some addons will be useful this switches
+DEFINEFLAGS =
+#
+LOGBINON = 0
+ifeq ($(LOGBINON),1)
+DEFINEFLAGS += -D_LOGBIN_
+endif
+#
+#
+OPT2 += $(DEFINEFLAGS)
+#E
+#
+
+#E
+############################
+
+
+############################
+#B Addendum of some not important
+#   modules or that are in
+#   development phase
+# Normally they will be switched OFF
+
+
+#E
+############################
+
+
+############################
+#B Addendum of some important
+#   modules that will not be part
+#       any longer of the public version
+# Normally they will be switched OFF
+############################
+
+
+#E Addendum of some not important
+#  no longer part of the public version
+############################
+
+
+$(info =====================================================)

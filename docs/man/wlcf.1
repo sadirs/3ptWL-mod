@@ -1,0 +1,206 @@
+.TH wlcf 1 "May 2026" UNIX "LSST/S3 PROJECT"
+.na
+.nh
+
+.SH NAME
+wlcf \- Weak Lensing Correlation Functions computation code
+
+.SH SYNOPSIS
+.B wlcf
+[
+.I parameter_file
+]
+[
+.I options
+]
+
+.SH DESCRIPTION
+.B wlcf
+computes weak lensing correlation function statistics using perturbation
+theory and halo-model inspired approaches.
+
+The code can compute multipoles of the weak lensing 3-point correlation
+function (3PCF) in a plane-wave expansion framework. Available theoretical
+models include:
+
+.IP
+- Standard Perturbation Theory (SPT)
+.IP
+- P2 approximation
+.IP
+- Effective Field Theory (EFT)
+.IP
+- Takahashi/Halo-model inspired bispectrum
+
+The code supports OpenMP parallelization and includes a Python wrapper
+interface through
+.B wlcfpy
+for interactive notebook execution.
+
+.SH OPTIONS
+
+All command-line parameters follow the format:
+
+.sp
+$ option_name=value
+.sp
+
+No blank spaces are allowed around '=' in command-line mode.
+
+To see all available parameters and their default values:
+
+.sp
+$ wlcf --help
+.sp
+
+.SH MAIN PARAMETERS
+
+.IP "\fBz\fR" 12
+Redshift used in the computation.
+
+.IP "\fBh\fR" 12
+Dimensionless Hubble parameter.
+
+.IP "\fBsigma8\fR" 12
+[a: s8] Target value of :math:`\sigma_8`.
+
+.IP "\fBOmb\fR" 12
+Baryon density parameter.
+
+.IP "\fBOmc\fR" 12
+Cold dark matter density parameter.
+
+.IP "\fBOmnu\fR" 12
+Massive neutrino density parameter.
+
+.IP "\fBns\fR" 12
+Scalar spectral index of the primordial power spectrum.
+
+.IP "\fBw\fR" 12
+Dark energy equation of state parameter.
+
+.IP "\fBfnamePS\fR" 12
+[a: ps] Input linear matter power spectrum file.
+
+.IP "\fBtree_level\fR" 12
+Select theoretical model:
+
+.sp
+1 = SPT
+.br
+2 = P2 approximation
+.br
+3 = EFT
+.br
+4 = Takahashi/Halo-model
+
+.IP "\fBmMax\fR" 12
+Maximum multipole order to compute.
+
+.IP "\fBNell\fR" 12
+Number of multipole bins.
+
+.IP "\fBellmin\fR" 12
+Minimum multipole value.
+
+.IP "\fBellmax\fR" 12
+Maximum multipole value.
+
+.IP "\fBGLpoints\fR" 12
+Number of Gauss-Legendre integration points.
+
+.IP "\fBchiQuadSteps\fR" 12
+Number of integration steps in the radial direction.
+
+.IP "\fBnumberThreads\fR" 12
+[a: nthreads] Number of OpenMP threads.
+
+.IP "\fBrootDir\fR" 12
+[a: root] Output directory.
+
+.IP "\fBpath_Bells\fR" 12
+[a: bellout] Directory where multipole outputs are saved.
+
+.IP "\fBprefix\fR" 12
+[a: pre] Prefix used for output file names.
+
+.IP "\fBverbose\fR" 12
+[a: verb] Verbosity level printed to stdout.
+
+.IP "\fBverbose_log\fR" 12
+[a: verblog] Save verbose output to log files.
+
+.SH EXAMPLES
+
+Compile the code:
+
+.sp
+$ make clean; make all
+
+.sp
+Run a default example from the tests directory:
+
+.sp
+$ cd tests
+.br
+$ time ../wlcf verb=2
+
+.sp
+Run the Halo-model branch:
+
+.sp
+$ time ../wlcf tree_level=4 verb=2
+
+.sp
+Example using a custom power spectrum:
+
+.sp
+$ time ../wlcf ps=./input/linear_pk_camb_T17_z05078.txt tree_level=3
+
+.SH PYTHON INTERFACE
+
+The Python wrapper can be used interactively:
+
+.sp
+$ python
+
+.sp
+>>> from wlcfpy import wlcf
+.br
+>>> w = wlcf()
+.br
+>>> w.set(numberThreads=8, tree_level=4)
+.br
+>>> w.Run()
+
+.SH OUTPUT FILES
+
+The code produces several output files under path_Bells. Most names use the
+configured prefix, for example:
+
+.IP
+run1_theta_array.txt
+.IP
+run1_ellArray.txt
+.IP
+run1_kArray.txt
+.IP
+run1_zetam0.txt
+.IP
+run1_Bmells_0.txt
+.IP
+run1_Bnk_0.txt
+.IP
+...
+
+These correspond to the multipoles
+.B zeta_m(theta1, theta2)
+of the weak lensing 3PCF.
+
+.SH SEE ALSO
+wlcfpy documentation in the Sphinx manual.
+
+.SH COPYRIGHT
+Copyright (C) 2026--
+.br
+Alejandro Aviles et al.
