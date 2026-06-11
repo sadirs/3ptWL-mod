@@ -1,7 +1,7 @@
-WLCF Installation
-=================
+3ptWL-mod Installation
+======================
 
-``wlcf`` is a C-based implementation for computing weak-lensing correlation
+3ptWL-mod is a C-based implementation for computing weak-lensing correlation
 function models, with optional OpenMP support and a Cython wrapper for Python
 workflows. This page covers the usual build and smoke-test path.
 
@@ -31,8 +31,8 @@ Clone the repository and enter the source tree:
 
 .. code-block:: bash
 
-    git clone https://github.com/rodriguezmeza/wlcf.git
-    cd wlcf
+    git clone https://github.com/sadirs/3ptWL-mod.git
+    cd 3ptWL-mod
 
 Configure
 ---------
@@ -156,7 +156,7 @@ On NERSC Perlmutter, a typical interactive workflow is:
     module load gcc
     salloc -N 1 -C cpu -q interactive -t 01:00:00
     export OMP_NUM_THREADS=32
-    cd wlcf/tests
+    cd 3ptWL-mod/tests
     ../wlcf numberThreads=32
 
 Use compute nodes rather than login nodes for production-size runs.

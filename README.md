@@ -1,6 +1,8 @@
-# wlcf: Weak Lensing Correlation Function modeling
+# 3ptWL-mod: Weak-Lensing Three-Point Modeling
 
-`wlcf` is a C code for modeling weak-lensing correlation functions in
+[![Documentation Status](https://readthedocs.org/projects/3ptwl-mod/badge/?version=latest)](https://3ptwl-mod.readthedocs.io/en/latest/?badge=latest)
+
+**3ptWL-mod** is a C code for modeling weak-lensing correlation functions in
 cosmology. The current public workflow focuses on multipoles of the
 three-point correlation function (3PCF) of the weak-lensing convergence field
 using perturbation-theory, EFT, and Takahashi/Halo-model inspired bispectrum
@@ -8,6 +10,13 @@ branches.
 
 The main documentation lives in `docs/` and can be built with Sphinx. A Unix
 manual page is also available at `docs/man/wlcf.1`.
+
+Documentation: [3ptwl-mod.readthedocs.io](https://3ptwl-mod.readthedocs.io/en/latest/)
+
+> **Compatibility note:** The project was previously published as `wlcf`.
+> The executable (`wlcf`), static library (`libwlcf.a`), Python extension
+> (`wlcfpy`), environment variables, and public APIs retain their existing
+> names.
 
 ## Authors
 
@@ -25,7 +34,7 @@ manual page is also available at `docs/man/wlcf.1`.
 - `getparam/`: command-line and parameter-file parser definitions.
 - `python/`: Cython wrapper source for `wlcfpy`.
 - `input/`: example input power spectra and weak-lensing kernels.
-- `tests/`: curated notebooks for an example WLCF run, emulator training, and
+- `tests/`: curated notebooks for an example 3ptWL-mod run, emulator training, and
   a compact emulator-based MCMC demonstration.
 - `docs/`: Sphinx documentation and manual-page sources.
 - `addons/`: optional bundled or helper components such as GSL, FFTW3 notes,
@@ -49,12 +58,12 @@ The notebooks additionally use `camb`, `scipy`, `scikit-learn`, `matplotlib`,
 through `conda-forge`, so a practical notebook environment can be created with:
 
 ```bash
-conda create -n wlcf-firecrown -c conda-forge \
+conda create -n 3ptwl-mod-firecrown -c conda-forge \
   python=3.11 camb scipy scikit-learn matplotlib emcee corner \
   firecrown sacc jupyterlab ipykernel
-conda activate wlcf-firecrown
-python -m ipykernel install --user --name wlcf-firecrown \
-  --display-name "Python (wlcf-firecrown)"
+conda activate 3ptwl-mod-firecrown
+python -m ipykernel install --user --name 3ptwl-mod-firecrown \
+  --display-name "Python (3ptWL-mod Firecrown)"
 ```
 
 Edit `Makefile_settings` and `Makefile_machine` only when you need to change
@@ -168,7 +177,7 @@ workflow:
 - `tests/example.ipynb`: build a linear power spectrum, run `wlcfpy`, and plot
   3PCF multipoles.
 - `tests/emulator.ipynb`: generate a 300-point Latin-hypercube cosmology
-  grid at the zs9 redshift, run WLCF, train one neural-network emulator per
+  grid at the zs9 redshift, run 3ptWL-mod, train one neural-network emulator per
   multipole, and save the emulator weights.
 - `tests/use_wlcf_emulator.ipynb`: load the trained emulator, predict a test
   cosmology, run a small `emcee` fit with an artificial covariance, and produce
@@ -186,7 +195,7 @@ jupyter lab use_wlcf_emulator.ipynb
 jupyter lab firecrown_emulator_likelihood.ipynb
 ```
 
-Generated WLCF outputs, emulator weights, vectors, and MCMC products are ignored
+Generated 3ptWL-mod outputs, emulator weights, vectors, and MCMC products are ignored
 by Git and can be regenerated from the notebooks.
 
 For a GitHub upload, start from a clean checkout or remove the ignored output
@@ -204,13 +213,10 @@ make -C docs html
 Open `docs/_build/html/index.html` after the build completes. Generated docs
 are intentionally ignored by `.gitignore`.
 
-The repository includes `.readthedocs.yaml` for hosted builds. Because this
-GitHub repository is private, import it through
-[Read the Docs Business](https://app.readthedocs.com/). The free
-[Read the Docs Community](https://app.readthedocs.org/) service only clones
-public repositories. Select the `main` branch and leave the configuration-file
-path at its default so Read the Docs finds `.readthedocs.yaml` in the
-repository root.
+The repository includes `.readthedocs.yaml` for hosted builds on
+[Read the Docs Community](https://app.readthedocs.org/). Select the `main`
+branch and leave the configuration-file path at its default so Read the Docs
+finds `.readthedocs.yaml` in the repository root.
 
 The manual page can be viewed from the repository root with:
 
@@ -229,11 +235,11 @@ Abraham Arvizu et al., [JCAP 12 (2024) 049; arXiv:2408.16847](https://arxiv.org/
 
 ## License
 
-`wlcf` is open source and distributed under the [MIT license](LICENSE).
+3ptWL-mod is open source and distributed under the [MIT license](LICENSE).
 
 ## Acknowledgements
 
-`wlcf` uses or builds on ideas, routines, or conventions from:
+3ptWL-mod uses or builds on ideas, routines, or conventions from:
 
 - [FFTLog routines by Xiao Fang](https://github.com/xfangcosmo/2DFFTLog)
 - [The BiHaloFit model of Takahashi](http://cosmo.phys.hirosaki-u.ac.jp/takahasi/codes_e.htm)

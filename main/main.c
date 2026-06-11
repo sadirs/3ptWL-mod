@@ -20,7 +20,7 @@ Comments and notes:
 References: Zeno project, NEMO project
             MR, GSL,FFTLog...
 
-github: https://github.com/rodriguezmeza/wlcf.git
+github: https://github.com/sadirs/3ptWL-mod.git
 Publication: cite: JCAP12(2024)049 (ArXiv ePrint: 2408.16847)
 */
 //==========================================================================
@@ -110,7 +110,6 @@ void Tests(void)
 #ifdef ADDONS
 #include "wlcf_include_05.h"
 #endif
-
 
 
 

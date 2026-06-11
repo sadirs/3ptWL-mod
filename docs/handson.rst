@@ -2,7 +2,7 @@
 Hands on
 ========
 
-This section provides a practical example of how to use **wlcf** from a
+This section provides a practical example of how to use **3ptWL-mod** from a
 Python notebook. The example follows a complete workflow:
 
 1. Generate a linear matter power spectrum using CAMB.
@@ -29,7 +29,7 @@ of the repository:
     from camb import model
     from wlcfpy import wlcf
 
-    WLCF_TESTS_DIR = os.environ.get("WLCF_TESTS_DIR", "/path/to/wlcf/tests")
+    WLCF_TESTS_DIR = os.environ.get("WLCF_TESTS_DIR", "/path/to/3ptWL-mod/tests")
     os.chdir(WLCF_TESTS_DIR)
 
     os.makedirs("input", exist_ok=True)
@@ -127,8 +127,8 @@ we use a T17-like cosmology at redshift :math:`z = 0.5078`:
 
 The resulting file is passed to ``wlcf`` through the parameter ``fnamePS``.
 
-Running wlcf from Python
-------------------------
+Running 3ptWL-mod from Python
+-----------------------------
 
 The code can be executed directly from Python using the ``wlcfpy`` wrapper:
 
@@ -464,7 +464,7 @@ Emulator and MCMC notebooks
 ---------------------------
 
 The repository also includes a compact emulator workflow under ``tests/``.
-The emulator is trained from WLCF outputs, so users can regenerate the full
+The emulator is trained from 3ptWL-mod outputs, so users can regenerate the full
 data set instead of relying on precomputed development files.
 
 Run the notebooks in this order:
@@ -474,7 +474,7 @@ Run the notebooks in this order:
    - builds a 300-point Latin-hypercube grid in ``Omega_m``, ``h``, and
      ``logAs``;
    - generates CAMB linear power spectra;
-   - runs WLCF for the zs9 redshift configuration;
+   - runs 3ptWL-mod for the zs9 redshift configuration;
    - trains one neural-network emulator per multipole and saves the weights
      under ``tests/emulator_outputs/``.
 
@@ -490,7 +490,7 @@ Run the notebooks in this order:
 3. ``tests/firecrown_emulator_likelihood.ipynb``
 
    - loads the same emulator weights;
-   - builds a masked WLCF data vector with the new binning mask;
+   - builds a masked 3ptWL-mod data vector with the new binning mask;
    - constructs a Gaussian likelihood with an artificial covariance;
    - runs a compact ``emcee`` check;
    - includes an optional Firecrown ``Statistic`` and ``ConstGaussian``
@@ -506,9 +506,9 @@ from ``conda-forge`` in the notebook environment:
 
 .. code-block:: bash
 
-    conda create -n wlcf-firecrown -c conda-forge \
+    conda create -n 3ptwl-mod-firecrown -c conda-forge \
       python=3.11 camb scipy scikit-learn matplotlib emcee corner \
       firecrown sacc jupyterlab ipykernel
-    conda activate wlcf-firecrown
-    python -m ipykernel install --user --name wlcf-firecrown \
-      --display-name "Python (wlcf-firecrown)"
+    conda activate 3ptwl-mod-firecrown
+    python -m ipykernel install --user --name 3ptwl-mod-firecrown \
+      --display-name "Python (3ptWL-mod Firecrown)"

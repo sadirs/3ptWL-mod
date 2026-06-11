@@ -221,8 +221,8 @@ extension.cython_directives = {"language_level": "3"}
 setup(
     name="wlcfpy",
     version=read_version(),
-    description="Python interface to the WLCF code",
-    url="https://github.com/rodriguezmeza/wlcf",
+    description="Python interface to the 3ptWL-mod modeling code",
+    url="https://github.com/sadirs/3ptWL-mod",
     python_requires=">=3.9",
     cmdclass={"build_ext": BuildExt},
     ext_modules=cythonize([extension], compiler_directives={"language_level": "3"}),

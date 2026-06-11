@@ -1,14 +1,18 @@
-wlcf: Weak Lensing Correlation Function
----------------------------------------
+3ptWL-mod: Weak-Lensing Three-Point Modeling
+--------------------------------------------
 
-``wlcf`` is a C code for computing weak-lensing correlation-function models.
+3ptWL-mod is a C code for computing weak-lensing correlation-function models.
 The current workflow focuses on the three-point correlation function (3PCF) of
 the weak-lensing convergence field using perturbation-theory, EFT, and
 Takahashi/Halo-model inspired branches.
 
+The project was previously published as ``wlcf``.  The executable, static
+library, Python extension, environment variables, and public APIs retain their
+existing compatibility names.
+
 For source code and releases, see:
 
-https://github.com/rodriguezmeza/wlcf.git
+https://github.com/sadirs/3ptWL-mod
 
 The associated paper is available at:
 
@@ -21,8 +25,8 @@ Clone and build:
 
 .. code-block:: bash
 
-    git clone https://github.com/rodriguezmeza/wlcf.git
-    cd wlcf
+    git clone https://github.com/sadirs/3ptWL-mod.git
+    cd 3ptWL-mod
     make clean
     make all
 
@@ -60,7 +64,7 @@ viewed with:
 License
 -------
 
-``wlcf`` is distributed under the MIT license. If you use this program in
+3ptWL-mod is distributed under the MIT license. If you use this program in
 research work that results in publications, please cite:
 
 `Abraham Arvizu et al., JCAP 12 (2024) 049; arXiv:2408.16847 <https://arxiv.org/abs/2408.16847>`_
@@ -68,7 +72,7 @@ research work that results in publications, please cite:
 Acknowledgements
 ----------------
 
-``wlcf`` uses or builds on ideas, routines, or conventions from:
+3ptWL-mod uses or builds on ideas, routines, or conventions from:
 
 * `FFTLog <https://github.com/xfangcosmo/2DFFTLog>`_
 * `The BiHaloFit model of Takahashi <https://cosmo.phys.hirosaki-u.ac.jp/takahasi/codes_e.htm>`_

@@ -2,7 +2,7 @@
 3-point correlation functions
 =============================
 
-**wlcf** computes **three-point correlation functions (3PCF)** for scalar fields, such as the weak lensing convergence :math:`\kappa`. These higher-order statistics provide access to non-Gaussian information in the large-scale structure of the Universe.
+**3ptWL-mod** computes **three-point correlation functions (3PCF)** for scalar fields, such as the weak lensing convergence :math:`\kappa`. These higher-order statistics provide access to non-Gaussian information in the large-scale structure of the Universe.
 
 In particular, the code evaluates the correlation:
 

@@ -1,10 +1,18 @@
-.. wlcf documentation master file, created by
+.. 3ptWL-mod documentation master file, created by
    sphinx-quickstart on Thu May  9 13:43:36 2024.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-wlcf documentation
-======================================
+3ptWL-mod
+=========
+
+3ptWL-mod models weak-lensing correlation functions, with a current focus on
+multipoles of the convergence three-point correlation function.
+
+The project was previously published as ``wlcf``.  For compatibility, the
+command-line executable, static library, Python extension, environment
+variables, and public APIs retain the names ``wlcf``, ``libwlcf.a``, and
+``wlcfpy``.
 
 .. toctree::
    :maxdepth: 2

@@ -3,7 +3,7 @@ AddOn's
 =======
 
 
-This section describes how to extend the functionality of **wlcf** by adding new features, models, or utilities to the codebase.
+This section describes how to extend the functionality of **3ptWL-mod** by adding new features, models, or utilities to the codebase.
 
 The modular structure of the code allows users to include additional functionality through custom header and source files.
 
@@ -81,7 +81,7 @@ make::
 
 **Integration**
 
-To integrate the new functionality into **wlcf**:
+To integrate the new functionality into **3ptWL-mod**:
 
 * Call your new functions from existing modules (e.g., in `procedures.c`)
 * Ensure parameters are passed correctly
