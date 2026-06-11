@@ -1,6 +1,6 @@
 # 3ptWL-mod: Weak-Lensing Three-Point Modeling
 
-[![Documentation Status](https://readthedocs.org/projects/3ptwl-mod/badge/?version=latest)](https://3ptwl-mod.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/wlcf/badge/?version=latest)](https://wlcf.readthedocs.io/en/latest/?badge=latest)
 
 **3ptWL-mod** is a C code for modeling weak-lensing correlation functions in
 cosmology. The current public workflow focuses on multipoles of the
@@ -11,12 +11,14 @@ branches.
 The main documentation lives in `docs/` and can be built with Sphinx. A Unix
 manual page is also available at `docs/man/wlcf.1`.
 
-Documentation: [3ptwl-mod.readthedocs.io](https://3ptwl-mod.readthedocs.io/en/latest/)
+Documentation: [3ptWL-mod documentation](https://wlcf.readthedocs.io/en/latest/)
 
 > **Compatibility note:** The project was previously published as `wlcf`.
 > The executable (`wlcf`), static library (`libwlcf.a`), Python extension
 > (`wlcfpy`), environment variables, and public APIs retain their existing
 > names.
+> The established Read the Docs URL is also retained to avoid breaking
+> published links.
 
 ## Authors
 
