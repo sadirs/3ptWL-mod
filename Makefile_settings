@@ -1,23 +1,20 @@
-# ----- MAKE FILE DEFINITIONS FOR wlcf CODE -----
-# Mario A. Rodriguez-Meza, Ciudad de Mexico, 15.02.2026
+# ----- MAKE FILE DEFINITIONS FOR wlcov CODE -----
+# Mario A. Rodriguez-Meza, Ciudad de Mexico, 01.05.2026
 #
 
 #
 # Change setting variables below as it is convient to you.
 #
-# Default GSL public (not the internal sources version, included in addons/gsl).
-# GSL can be switched off by setting USEGSL to 0, by default is 0,
-#   means GSL is not used:
+#B
+# Default GSL public (not the internal sources version, not included).
+#   always set it as 1
 USEGSL = 1
-# If you want the internal gsl version set it to 1, gsl sources files are included.
-GSLINTERNAL = 0
-# When USEGSL = 1 and GSLINTERNAL = 0 you must configure GSL directory in the system
-#   in order to be found. See Makefile_machine
-#   and set NAGBODYDIR to point to GSL directory in your machine.
-#
+#E
+
 # For an OpenMP machine could be important to set (maximum number of threads to use):
 # export OMP_NUM_THREADS=8
 # Set following line to 1 for OPENMP parallel version, or 0 to switch it off
+#   until now, set it to 0
 OPENMPMACHINE = 1
 #
 # If you have at least one addon then set to 1:
@@ -31,3 +28,4 @@ include $(MACHINES_DIR)Makefile_machine
 
 # Note:  Be careful in the options to set 1 or 0 without further space
 #        or a comment starting with #...
+

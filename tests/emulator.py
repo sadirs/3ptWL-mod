@@ -138,7 +138,6 @@ class EmulatorPaths:
     repo_root: Path
     test_dir: Path
     output_dir: Path
-    root_output_dir: Path
     pk_root_dir: Path
     emulator_dir: Path
     vector_dir: Path
@@ -209,7 +208,6 @@ def make_paths(config: EmulatorConfig | None = None, repo_root: Path | None = No
         repo_root=repo_root,
         test_dir=test_dir,
         output_dir=test_dir / "Bell_outputs",
-        root_output_dir=test_dir / "Output",
         pk_root_dir=pk_root_dir,
         emulator_dir=emulator_dir,
         vector_dir=vector_dir,
@@ -222,7 +220,6 @@ def make_paths(config: EmulatorConfig | None = None, repo_root: Path | None = No
     )
     for directory in [
         paths.output_dir,
-        paths.root_output_dir,
         paths.pk_root_dir,
         paths.emulator_dir,
         paths.vector_dir,
@@ -330,8 +327,7 @@ def make_camb_linear_pk(
 
 def base_wlcf_params(config: EmulatorConfig, paths: EmulatorPaths) -> dict[str, object]:
     return {
-        "rootDir": str(paths.root_output_dir),
-        "path_Bells": str(paths.output_dir),
+        "rootDir": str(paths.output_dir),
         "numberThreads": config.number_threads,
         "verbose": 1,
         "verbose_log": 0,
@@ -347,7 +343,6 @@ def base_wlcf_params(config: EmulatorConfig, paths: EmulatorPaths) -> dict[str, 
         "ellmax": config.ellmax,
         "ellmin": config.ellmin,
         "writevectors": 0,
-        "chatty": 2,
         "options": "",
     }
 

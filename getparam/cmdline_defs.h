@@ -4,6 +4,8 @@
     Starting date: april 2026
     Purpose: Definitions for importing arguments from the command line
     Language: C
+    Use: '#include "...."
+    Major revisions:
  ==============================================================================*/
 //        1          2          3          4          5          6          7
 
@@ -40,7 +42,7 @@ and if necessary in
 #define _cmdline_defs_h
 
 #define HEAD1	"LSST/S3"
-#define HEAD2	"3ptWL-mod: weak-lensing three-point modeling"
+#define HEAD2	"wlcf code for computing models of (2,3)pcf"
 #define HEAD3	"..."
 
 string defv[] = {  ";"HEAD1": " HEAD2 "\n\t " HEAD3,
@@ -63,7 +65,6 @@ string defv[] = {  ";"HEAD1": " HEAD2 "\n\t " HEAD3,
     // Output parameters
     "rootDir=Output",                               ";Output dir, where output files will be written", ":root",
     "prefix=run1_",                                 ";Output file of the points analysed (default ext: .txt)", ":pre",
-    "path_Bells=Bell_outputs",                      ";Output dir, where output files will be written", ":bellout",
     "tree_level=3",                                 ";= 1 second order PT, = 2 B=pk^, = 3 uses EFT ctr, = other Halo model",":tlev",
     "zbin=0.5078",                                  ";zbins",
     "mMax=5",                                       ";Bm moments upto mMax",
@@ -80,7 +81,6 @@ string defv[] = {  ";"HEAD1": " HEAD2 "\n\t " HEAD3,
 
     //B Miscellaneous parameters
     "writevectors=true",                ";If true, will be written vectors",
-    "chatty=2",                        ";Option to activate the amount of information sent to standard output", ":verb",
     "verbose=2",                        ";Option to activate the amount of information sent to standard output", ":verb",
     "verbose_log=1",                    ";Option to activate the amount of information sent to log file", ":verblog",
 #ifdef OPENMPCODE

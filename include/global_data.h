@@ -1,7 +1,7 @@
 /*==============================================================================
  HEADER: global_data.h		[wlcf]
  Written by: Mario A. Rodriguez-Meza
- Starting date: april 2023
+ Starting date: 15.02.2026
  Purpose: Definitions of global variables and parameters
  Language: C
  Use: '#include "global_data.h"
@@ -17,8 +17,6 @@
 #ifndef _global_data_h
 #define _global_data_h
 
-//#include "vectdefs.h"
-//#include "datastruc_defs.h"
 #include "common_defs.h"
 
 #ifndef n_data_max
@@ -28,33 +26,35 @@
 #define n_chi_data_max 10000
 #endif
 
+#ifndef MAXLENGTHOFPSPATH
+#define MAXLENGTHOFPSPATH 100
+#endif
+
 struct global_data{
     double cpuinit;
+    long cpurealinit;                               // get time of the day
     double dx;
     int method_int;
     int quadmethod_int;
-    clock_t time;
     string headline0;
     string headline1;
     string headline2;
     string headline3;
     FILE *outlog;
     char mode[2];
-    char fnamePSPath[100];
+    char fnamePSPath[MAXLENGTHOFPSPATH];
     double k_data[n_data_max], pkz0_data[n_data_max];
     int n_data;
     double Dpz0;
     double sigma8; // This is sigma8 for input pk at z=0;
-    //~ int Nk; // number of log spaced k in Bm(k1,k2), Check if used
-    //~ double kmin, kmax; // kmin and kmax in Bm(k1,k2). Check if used
-    //~ double *kT; // Array of k used for Bm(k1,k2). Check if used
-    //~ double *veckBm0, *veckBm1, *veckBm2;
-    double chi_data[n_chi_data_max], Wg_chi_data[n_chi_data_max];
+    double chi_data[n_chi_data_max];
+    double Wg_chi_data[n_chi_data_max];
     int n_chi_data;
 
+    bool startrun_cputime;
     bool cmd_allocated;
-    real cputotalinout;
-    real cputotal;
+    bool gd_allocated;
+    bool tables_allocated;
     INTEGER bytes_tot;
     bool flagPrint;
     bool rootDirFlag;
@@ -64,9 +64,14 @@ struct global_data{
     bool rootDirFlagFree;
     bool fWgchiFlag;
     bool optionsFlag;
-    bool path_BellsFlag;
     bool prefixFlag;
     bool fnamePSFlag;
+
+    //B socket:
+    #ifdef ADDONS
+    #include "global_data_include.h"
+    #endif
+    //E
 
 };
 

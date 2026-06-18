@@ -1,109 +1,77 @@
-Python Interface
-================
+Python Wrapper
+==============
 
-``wlcf`` can be driven from Python in two ways:
+3ptWL-mod can be driven through ``subprocess`` or through the compiled
+``wlcfpy`` extension.
 
-* call the executable with ``subprocess``;
-* use the Cython wrapper exposed as ``wlcfpy``.
-
-Calling The Executable
+Calling the Executable
 ----------------------
 
-The command-line interface is often the easiest option for scans and batch
-workflows:
+.. code-block:: python
+
+   import subprocess
+
+   subprocess.run(
+       [
+           "./wlcf",
+           "rootDir=Output_subprocess",
+           "prefix=subprocess_",
+           "tree_level=4",
+           "fnamePS=./input/linear_pk_Takahashi_z0.txt",
+           "numberThreads=4",
+       ],
+       check=True,
+   )
+
+Each parameter must be one ``key=value`` argument.
+
+Using ``wlcfpy``
+----------------
+
+Build and import the extension:
+
+.. code-block:: bash
+
+   make PYTHON=python3 all
+   python3 -c "from wlcfpy import wlcf; print(wlcf)"
+
+A minimal run is:
 
 .. code-block:: python
 
-    import subprocess
+   from wlcfpy import wlcf
 
-    subprocess.run(
-        [
-            "../wlcf",
-            "tree_level=4",
-            "ps=./input/linear_pk_Takahashi_z0.txt",
-            "prefix=halo_model_z05078_",
-        ],
-        check=True,
-    )
+   model = wlcf()
+   model.set({
+       "rootDir": "Output_python",
+       "prefix": "python_",
+       "fnamePS": "./input/linear_pk_Takahashi_z0.txt",
+       "tree_level": 4,
+       "numberThreads": 4,
+       "verbose": 1,
+       "verbose_log": 0,
+   })
+   cputime = model.Run()
+   print(cputime)
+   model.clean_all()
 
-Parameters must be passed as ``key=value`` strings with no spaces around
-``=``.
+Wrapper Semantics
+-----------------
 
-Cython Wrapper
+``set`` accepts keyword arguments or one dictionary. ``Run`` validates the
+parameters, initializes the numerical structures, executes the requested
+stages, and returns a CPU-time value. ``clean_all`` releases the allocated C
+state.  Create separate wrapper instances for independent concurrent jobs.
+
+The extension checks the C and Cython structure sizes during initialization.
+An ABI mismatch means the static library, generated PXD declarations, and
+extension were built with inconsistent settings; run a clean rebuild.
+
+Relative Paths
 --------------
 
-Build the wrapper with:
+Input paths are resolved relative to the Python process working directory.
+Every output follows the same ``rootDir`` and ``prefix`` rules as the CLI.
 
-.. code-block:: bash
-
-    make clean
-    make all
-
-or, with a specific interpreter:
-
-.. code-block:: bash
-
-    PYTHON=python3 make all
-
-Then check the import:
-
-.. code-block:: bash
-
-    python -c "from wlcfpy import wlcf; print(wlcf)"
-
-Minimal wrapper usage from inside ``tests``:
-
-.. code-block:: python
-
-    from wlcfpy import wlcf
-
-    w = wlcf()
-    w.set(
-        numberThreads=8,
-        verbose=2,
-        fnamePS="./input/linear_pk_Takahashi_z0.txt",
-        tree_level=4,
-        prefix="halo_model_z05078_",
-    )
-    cputime = w.Run()
-    print(cputime)
-
-The wrapper accepts either keyword arguments or a dictionary:
-
-.. code-block:: python
-
-    params = {
-        "numberThreads": 8,
-        "tree_level": 4,
-        "fnamePS": "./input/linear_pk_Takahashi_z0.txt",
-    }
-
-    w = wlcf()
-    w.set(params)
-    w.Run()
-
-Troubleshooting
----------------
-
-If ``make all`` fails while building ``wlcfpy``:
-
-* Confirm that GSL and FFTW are installed and visible through ``pkg-config`` or
-  through ``GSL_DIR`` and ``FFTW_DIR``.
-* Confirm that ``libwlcf.a`` exists in the repository root. If not, run
-  ``make libwlcf.a``.
-* For custom library locations, set ``WLCF_INCLUDE_DIRS`` and
-  ``WLCF_LIBRARY_DIRS`` before running ``make all``.
-* If OpenMP is enabled, make sure the compiler and Python extension link
-  against the matching OpenMP runtime.
-
-If the wrapper raises an error about unread parameters, compare the parameter
-names with ``../wlcf --help``. The wrapper is stricter than the executable and
-reports parameters that were not understood by the C input layer.
-
-Notes
------
-
-The working directory should contain the input files referenced by relative
-paths such as ``./input/linear_pk_Takahashi_z0.txt``. Output files are written
-using the same ``rootDir``, ``path_Bells``, and ``prefix`` rules as the C
-executable.
+See :doc:`tutorials/python-3pcf` for a complete notebook-oriented workflow and
+:doc:`tutorials/emulator` for the optional surrogate-model pipeline.

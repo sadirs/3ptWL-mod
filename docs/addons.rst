@@ -1,88 +1,40 @@
+Optional Addons and Extension Points
+====================================
 
-AddOn's
-=======
+The ``addons/`` tree contains parser support, generated-declaration fragments,
+dependency notes, and include sockets used to assemble the public build.
 
+Standard Build Addons
+---------------------
 
-This section describes how to extend the functionality of **3ptWL-mod** by adding new features, models, or utilities to the codebase.
+``addons/class_lib``
+   CLASS-style parameter-file parser and associated error handling.
 
-The modular structure of the code allows users to include additional functionality through custom header and source files.
+``addons/pxd``
+   Cython declaration fragments used to generate ``python/cwlcfpy.pxd``.
 
-**Include files**
+``addons/addons_include``
+   Source and structure fragments inserted at marked addon sockets.
 
-Header files define the interface of new functionalities and must be placed in the appropriate include directories.
+``addons/gsl`` and ``addons/fftw3``
+   Dependency notes and optional bundled material.  System or environment
+   packages are preferred for normal builds.
 
-To add new features:
+Adding a Parameter
+------------------
 
-1. Create a header file (e.g., `my_module.h`)
+A new run-time parameter requires coordinated changes to the defaults,
+``cmdline_data`` structure, command-line reader, CLASS-style parser, reporting
+logic, cleanup logic, and Cython template when exposed to Python.  Rebuild from
+clean objects and confirm the wrapper ABI check.
 
-2. Place it in one of the include directories:
+Adding Numerical Code
+---------------------
 
-   ::
+Place public declarations in ``include/`` and implementations in ``source/``.
+Add the object to the relevant Makefile list and expose it through a stable
+entry point rather than importing internal globals into Python.  New model
+branches should document their assumptions, parameters, output products, and
+convergence tests.
 
-    include/
-    addons/addons_include/
-
-3. Declare functions, structures, or parameters inside the header.
-
-Example
-
-c::
-
-    #ifndef MY_MODULE_H
-    #define MY_MODULE_H
-    void my_new_function(double *input, double *output);
-    #endif
-
-
-4. Include the header in the relevant source files:
-
-c::
-
-    #include "my_module.h"
-
-
-**Source files**
-
-Source files implement the functionality declared in the header files.
-
-To add a new module:
-
-1. Create a source file (e.g., `my_module.c`)
-
-2. Place it in one of the source directories:
-
-   ::
-
-    source/
-    addons/
-
-3. Implement the functions:
-
-c::
-
-    #include "my_module.h"
-    void my_new_function(double *input, double *output) {
-    // Example computation
-    *output = input[0] * 2.0;}
-
-
-**Compilation**
-
-To ensure the new files are compiled:
-
-* Add the source file to the build system (if not automatically included)
-* Modify `Makefile` or `Makefile_machine` if necessary
-
-Example (if manual inclusion is needed):
-
-make::
-
-    SRC += source/my_module.c
-
-**Integration**
-
-To integrate the new functionality into **3ptWL-mod**:
-
-* Call your new functions from existing modules (e.g., in `procedures.c`)
-* Ensure parameters are passed correctly
-* Update relevant headers if new parameters are introduced
+See :doc:`development` for the validation checklist.

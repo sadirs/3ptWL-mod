@@ -2,251 +2,142 @@
 
 [![Documentation Status](https://readthedocs.org/projects/3ptwl-mod/badge/?version=latest)](https://3ptwl-mod.readthedocs.io/en/latest/?badge=latest)
 
-**3ptWL-mod** is a C code for modeling weak-lensing correlation functions in
-cosmology. The current public workflow focuses on multipoles of the
-three-point correlation function (3PCF) of the weak-lensing convergence field
-using perturbation-theory, EFT, and Takahashi/Halo-model inspired bispectrum
-branches.
+**3ptWL-mod** computes theoretical multipoles of the three-point correlation
+function (3PCF) of projected scalar fields, with a focus on weak-lensing
+convergence. The C pipeline projects matter-bispectrum models into
+\(\zeta_m(\theta_1,\theta_2)\) and supports perturbation-theory,
+effective-field-theory, and Takahashi/Halo-model inspired branches.
 
-The main documentation lives in `docs/` and can be built with Sphinx. A Unix
-manual page is also available at `docs/man/wlcf.1`.
+The repository provides:
 
-Documentation: [3ptWL-mod documentation](https://3ptwl-mod.readthedocs.io/en/latest/)
+- the `wlcf` command-line executable;
+- the `libwlcf.a` static library;
+- the `wlcfpy` Cython wrapper;
+- notebooks for 3PCF visualization and neural-network emulation.
 
-> **Compatibility note:** The project was previously published as `wlcf`.
-> The executable (`wlcf`), static library (`libwlcf.a`), Python extension
-> (`wlcfpy`), environment variables, and public APIs retain their existing
-> names.
+The executable and Python package retain their historical `wlcf` names for API
+compatibility. The repository name reflects the scientific role of the code.
 
-## Authors
+Documentation: [3ptWL-mod on Read the Docs](https://3ptwl-mod.readthedocs.io/en/latest/)
 
-- Alejandro Aviles (ICF-UNAM, Mexico), avilescervantes@gmail.com, aviles@icf.unam.mx
-- Juan Carlos Hidalgo (ICF-UNAM, Mexico), hidalgo@icf.unam.mx
-- Eladio A. Moreno-Alcala (UG, Mexico), ea.morenoalcala@ugto.mx
-- Gustavo Niz-Quevedo (UG, Mexico), g.niz@ugto.mx
-- Sadi Ramirez (ICF-UNAM, Mexico), sadi@icf.unam.mx
-- Mario A. Rodriguez-Meza (ININ, Mexico), marioalberto.rodriguezmeza@gmail.com
-- Sofia del Pilar Samario-Nava (ICF-UNAM, Mexico), sabiduria_sofy@hotmail.com
+## Quick start
 
-## Repository Layout
-
-- `source/`, `include/`, `main/`: C implementation and executable entry point.
-- `getparam/`: command-line and parameter-file parser definitions.
-- `python/`: Cython wrapper source for `wlcfpy`.
-- `input/`: example input power spectra and weak-lensing kernels.
-- `tests/`: curated notebooks for an example 3ptWL-mod run, emulator training, and
-  a compact emulator-based MCMC demonstration.
-- `docs/`: Sphinx documentation and manual-page sources.
-- `addons/`: optional bundled or helper components such as GSL, FFTW3 notes,
-  CLASS-style parser utilities, and Cython support files.
-
-## Requirements
-
-The C executable requires:
-
-- A C compiler, normally `gcc`.
-- GSL when `USEGSL = 1` in `Makefile_settings`.
-- FFTW3 when `USEFFTW3ON = 1` in `Makefile_machine`.
-
-The Python wrapper additionally requires Python. The build metadata installs
-the Python build dependencies (`numpy`, `cython`, `setuptools`, and `wheel`)
-when `pip install .` is run.
-
-The notebooks additionally use `camb`, `scipy`, `scikit-learn`, `matplotlib`,
-`emcee`, and `corner`. The Firecrown bridge notebook also uses `firecrown` and
-`sacc` when those optional packages are installed. Firecrown is distributed
-through `conda-forge`, so a practical notebook environment can be created with:
+The native build requires a C compiler, GSL, and FFTW3. Build all public
+interfaces with:
 
 ```bash
-conda create -n 3ptwl-mod-firecrown -c conda-forge \
-  python=3.11 camb scipy scikit-learn matplotlib emcee corner \
-  firecrown sacc jupyterlab ipykernel
-conda activate 3ptwl-mod-firecrown
-python -m ipykernel install --user --name 3ptwl-mod-firecrown \
-  --display-name "Python (3ptWL-mod Firecrown)"
-```
-
-Edit `Makefile_settings` and `Makefile_machine` only when you need to change
-compiler, OpenMP, GSL, or FFTW settings. The Python wrapper setup searches
-environment variables, `pkg-config`, Conda, Homebrew, and common Linux library
-paths automatically. For custom installs, set `GSL_DIR`, `FFTW_DIR`,
-`WLCF_INCLUDE_DIRS`, or `WLCF_LIBRARY_DIRS`.
-
-## Build
-
-From the repository root:
-
-```bash
+git clone https://github.com/sadirs/3ptWL-mod.git
+cd 3ptWL-mod
 make clean
-make all
+make PYTHON=python3 all
 ```
 
-`make all` builds the `wlcf` executable, `libwlcf.a`, and the `wlcfpy` Python
-wrapper. To build only the executable and static library, use:
+Run a compact validation calculation:
 
 ```bash
-make clean
-make
+./wlcf rootDir=Output_quick prefix=quick_ \
+  fnamePS=./input/linear_pk_Takahashi_z0.txt \
+  numberThreads=1 verbose=0 verbose_log=0 \
+  mMax=2 Nell=32 chiQuadSteps=40 GLpoints=24 writevectors=false
 ```
 
-If you need a specific Python interpreter:
+All generated files are written beneath `rootDir`. File names use `prefix`
+where applicable.
 
-```bash
-PYTHON=python3 make all
-```
+## Python wrapper
 
-## Run A Smoke Test
-
-From the repository root:
-
-```bash
-make clean
-make all
-cd tests
-../wlcf
-```
-
-The default run writes outputs under the selected output directories, normally:
-
-- `Output/` for logs and the used-parameter file.
-- `Bell_outputs/` for 3PCF and bispectrum output tables.
-
-After each run, a `*-usedvalues` file is written and can be used as a template
-for future parameter files.
-
-## Parameters
-
-Command-line parameters use `key=value` with no spaces:
-
-```bash
-../wlcf tree_level=4 ps=./input/linear_pk_Takahashi_z0.txt verb=2
-```
-
-To see the live parameter list, defaults, and aliases:
-
-```bash
-../wlcf --help
-```
-
-The source of truth for compiled defaults is `getparam/cmdline_defs.h`; the
-Sphinx page `docs/params.rst` mirrors the main user-facing subset.
-
-## Input And Output
-
-The linear power-spectrum input selected by `fnamePS`/`ps` is a plain numeric
-two-column ASCII table:
-
-```text
-1.000000e-03  2.345678e+04
-2.000000e-03  1.987654e+04
-5.000000e-03  1.234567e+04
-```
-
-When `Wg=1`, the weak-lensing kernel selected by `fWgchi` is also a plain
-numeric two-column ASCII table containing `chi` and `Wg(chi)`.
-
-Typical output files include `theta_array.txt`, `ellArray.txt`, `kArray.txt`,
-`zetam*.txt`, `Bmells_*.txt`, `Bnk_*.txt`, `background_functions.txt`, and
-`info.txt`, all with the configured `prefix` when applicable.
-
-## Python
-
-After `make all` succeeds:
+After `make all`:
 
 ```python
 from wlcfpy import wlcf
 
-w = wlcf()
-w.set(
-    numberThreads=8,
-    tree_level=4,
-    fnamePS="./input/linear_pk_Takahashi_z0.txt",
-)
-w.Run()
+model = wlcf()
+model.set({
+    "rootDir": "Output_python",
+    "prefix": "python_",
+    "fnamePS": "./input/linear_pk_Takahashi_z0.txt",
+    "tree_level": 4,
+    "mMax": 2,
+    "Nell": 32,
+    "chiQuadSteps": 40,
+    "GLpoints": 24,
+    "numberThreads": 1,
+    "verbose": 0,
+    "verbose_log": 0,
+    "writevectors": False,
+})
+model.Run()
+model.clean_all()
 ```
 
-If the wrapper fails to build, first check that `libwlcf.a` was built and that
-GSL/FFTW are visible through `pkg-config` or the environment variables listed
-above.
+## Tutorials and emulator
 
-## Hands-On Notebooks
+The curated workflows live under `tests/`:
 
-The documented repository keeps only the notebooks needed for a clean user
-workflow:
+- `example.ipynb` runs the model and visualizes 3PCF multipoles;
+- `emulator.ipynb` generates a cosmology grid and trains neural-network
+  surrogates;
+- `use_wlcf_emulator.ipynb` demonstrates accelerated inference;
+- `firecrown_emulator_likelihood.ipynb` provides an experimental likelihood
+  integration scaffold;
+- `emulator.py` contains the reusable data-generation and training helpers.
 
-- `tests/example.ipynb`: build a linear power spectrum, run `wlcfpy`, and plot
-  3PCF multipoles.
-- `tests/emulator.ipynb`: generate a 300-point Latin-hypercube cosmology
-  grid at the zs9 redshift, run 3ptWL-mod, train one neural-network emulator per
-  multipole, and save the emulator weights.
-- `tests/use_wlcf_emulator.ipynb`: load the trained emulator, predict a test
-  cosmology, run a small `emcee` fit with an artificial covariance, and produce
-  a triangular plot.
-- `tests/firecrown_emulator_likelihood.ipynb`: wrap the trained emulator as a
-  Gaussian likelihood, using an artificial covariance for now and an optional
-  Firecrown `Statistic`/`ConstGaussian` scaffold for later sampler integration.
+The emulator is an optional research workflow, not a replacement for
+convergence testing against direct 3ptWL-mod calculations. Its design follows
+the broader neural-network acceleration strategy demonstrated by Sadi Ramirez
+et al. in [*Full shape cosmology analysis from BOSS in configuration space
+using neural network acceleration*](https://doi.org/10.1088/1475-7516/2024/08/049),
+JCAP **2024** (08) 049.
 
-Run the emulator notebooks in this order:
+## Repository layout
 
-```bash
-cd tests
-jupyter lab emulator.ipynb
-jupyter lab use_wlcf_emulator.ipynb
-jupyter lab firecrown_emulator_likelihood.ipynb
-```
-
-Generated 3ptWL-mod outputs, emulator weights, vectors, and MCMC products are ignored
-by Git and can be regenerated from the notebooks.
-
-For a GitHub upload, start from a clean checkout or remove the ignored output
-directories before archiving the repository.
+- `source/`, `include/`, `main/`: numerical C implementation and entry point.
+- `getparam/`: command-line and parameter-file parser.
+- `general_lib/`: shared low-level C utilities.
+- `python/`: Cython wrapper and generated-declaration template.
+- `input/`: example power spectra and lensing kernels.
+- `tests/`: notebooks, emulator helpers, and validation inputs.
+- `docs/`: Sphinx and manual-page sources.
+- `addons/`: CLASS-style parser, Cython, and optional build components.
 
 ## Documentation
 
-Install the documentation dependencies and build the HTML docs:
-
 ```bash
-python -m pip install -r docs/requirements.txt
+python3 -m pip install -r docs/requirements.txt
 make -C docs html
 ```
 
-Open `docs/_build/html/index.html` after the build completes. Generated docs
-are intentionally ignored by `.gitignore`.
-
-The repository includes `.readthedocs.yaml` for hosted builds on
-[Read the Docs Community](https://app.readthedocs.org/). Select the `main`
-branch and leave the configuration-file path at its default so Read the Docs
-finds `.readthedocs.yaml` in the repository root.
-
-The manual page can be viewed from the repository root with:
-
-```bash
-man ./docs/man/wlcf.1
-```
-
-If `man2html` is installed, `docs/man/makehtml.sh` can generate an HTML
-version of the manual page.
+Open `docs/_build/html/index.html`. Read the Docs uses the repository-level
+`.readthedocs.yaml` configuration and treats Sphinx warnings as build errors.
 
 ## Citation
 
-If you use this code in research work that results in publications, please cite:
+For the 3PCF modeling framework, cite:
 
-Abraham Arvizu et al., [JCAP 12 (2024) 049; arXiv:2408.16847](https://arxiv.org/abs/2408.16847).
+- Abraham Arvizu et al., [*Modeling the 3-point correlation function of
+  projected scalar fields on the sphere*](https://arxiv.org/abs/2408.16847),
+  JCAP **12** (2024) 049.
 
-## License
+When the neural-network workflow is material to the analysis, also cite:
 
-3ptWL-mod is open source and distributed under the [MIT license](LICENSE).
+- Sadi Ramirez, Miguel Icaza-Lizaola, Sebastien Fromenteau, Mariana
+  Vargas-Magaña, and Alejandro Aviles,
+  [*Full shape cosmology analysis from BOSS in configuration space using neural
+  network acceleration*](https://doi.org/10.1088/1475-7516/2024/08/049),
+  JCAP **2024** (08) 049.
 
-## Acknowledgements
+Record the repository commit, compiler and dependency versions, and complete
+run parameters in scientific releases.
 
-3ptWL-mod uses or builds on ideas, routines, or conventions from:
+## Contributors
 
-- [FFTLog routines by Xiao Fang](https://github.com/xfangcosmo/2DFFTLog)
-- [The BiHaloFit model of Takahashi](http://cosmo.phys.hirosaki-u.ac.jp/takahasi/codes_e.htm)
-- [Zeno](https://home.ifa.hawaii.edu/users/barnes/zeno/index.html)
-- [Numerical Recipes](https://numerical.recipes/)
-- [GSL](https://www.gnu.org/software/gsl/)
-- [CLASS](https://github.com/lesgourg/class_public)
+The scientific code and documentation include contributions from Alejandro
+Aviles, Juan Carlos Hidalgo, Eladio Moreno, Gustavo Niz, Sadi Ramirez, Mario A.
+Rodriguez-Meza, Sofía Samario, and collaborators.
 
-Alejandro Aviles acknowledges support by grants UNAM PAPIIT IA101825 and
+## License and acknowledgements
+
+3ptWL-mod is distributed under the [MIT license](LICENSE). The project uses or
+builds on FFTLog, BiHaloFit/Takahashi models, Zeno, Numerical Recipes, GSL, and
+CLASS. Alejandro Aviles acknowledges support by grants UNAM PAPIIT IA101825 and
 SECIHTI CBF2023-2024-162.

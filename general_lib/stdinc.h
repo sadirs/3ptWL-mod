@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define copyright	"Copyright (c) 2000-2023 M.A. Rodriguez-Meza, MEXICO."
+#define copyright	"Copyright (c) 2000-2026 M.A. Rodriguez-Meza, MEXICO."
 
 #if !defined(NULL)
 #define NULL 0L
@@ -232,6 +232,8 @@ void verb_print(int verbose, string fmt, ...);
 void verb_print_warning(int verbose, string fmt, ...);
 void verb_print_debug(int verbose, string fmt, ...);
 void verb_log_print(int verbose, stream sout,  string fmt, ...);
+void verb_print_no_info(int verbose, int verbose_log, stream sout,
+                            string fmt, ...);
 void verb_print_min_info(int verbose, int verbose_log, stream sout,
                             string fmt, ...);
 void verb_print_normal_info(int verbose, int verbose_log, stream sout,
@@ -246,14 +248,25 @@ bool scanopt(string, string);
 
 stream stropen(string, string);					
 
-//double second(void);
-//double timediff(double t0,double t1);
-
 //B From G
 double dmax(double,double);
 double dmin(double,double);
 int    imax(int,int);
 int    imin(int,int);
+//E
+
+// to stop using this system()...
+// sprintf(outputDir,cmd->rootDir);
+// sprintf(buf,"if [ ! -d %s ]; then mkdir %s; fi", outputDir, outputDir);
+// system(buf);
+int mkdir_p(const char *path, mode_t mode);
+
+// to solve unsafe strcpy / sprintf usage
+int copy_checked(char *dst, size_t dst_size,
+                const char *src, const char *label);
+
+//B CLASS type definitions
+void class_protect_sprintf(char *dest, size_t dest_size, const char *tpl, ...);
 //E
 
 #endif  /* ! _stdinc_h	*/

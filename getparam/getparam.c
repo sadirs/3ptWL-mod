@@ -28,6 +28,11 @@
 #include "getparam.h"
 #include <string.h>
 
+#include <errno.h>
+#include <limits.h>
+#include <math.h>
+#include <stdlib.h>
+
 typedef struct {
     string name;
 	string name_alias;
@@ -146,7 +151,11 @@ local void CheckHelp(param *pvec, string argv1)
             || streq(argv1, "-h") || streq(argv1, "--help") ) ) {
         PrintHeader(pvec->value, pvec->comment);
         for (pp = pvec+1; pp->name != NULL; pp++) {
-            sprintf(buf, "  %s=%s", pp->name, pp->value);
+
+            int n = snprintf(buf, sizeof(buf), "  %s=%s", pp->name, pp->value);
+            if (n < 0 || (size_t)n >= sizeof(buf))
+                error("getparam: parameter line too long\n");
+
             PrintItem(buf, pp->comment, pp->name_alias);
         }
         exit(0);
@@ -155,9 +164,6 @@ local void CheckHelp(param *pvec, string argv1)
 
 local void CheckVersion(param *pvec, string argv1)
 {
-//    param *pp;
-//    char buf[128];
-
     if (argv1 != NULL && streq(argv1, "--version")) {
         printf("Version = %s\n", getversion());
         exit(0);
@@ -176,7 +182,11 @@ local void PrintHeader(string item, string comment)
         printf("%s\n", item);
     else
         if (strlen(item) < 32) {
-            sprintf(buf,"\n%s\n%s\n",item,comment);
+            
+            int n = snprintf(buf, sizeof(buf), "\n%s\n%s\n", item, comment);
+            if (n < 0 || (size_t)n >= sizeof(buf))
+                error("getparam: header line too long\n");
+            
             printf("%s\n", buf);
         } else
             printf("%s\n\t  %s\n", item, comment);
@@ -275,18 +285,50 @@ int GetParamStat(string name)
 
 int GetiParam(string name)
 {
-    return (atoi(GetParam(name)));
+    char *val = GetParam(name);
+    char *end = NULL;
+    long x;
+
+    errno = 0;
+    x = strtol(val, &end, 10);
+
+    if (errno != 0 || end == val || *end != '\0' || x < INT_MIN || x > INT_MAX)
+        error("getparam: %s=%s not a valid int\n", name, val);
+
+    return (int)x;
 }
 
 long GetlParam(string name)
 {
-    return (atol(GetParam(name)));
+    char *val = GetParam(name);
+    char *end = NULL;
+    long x;
+
+    errno = 0;
+    x = strtol(val, &end, 10);
+
+    if (errno != 0 || end == val || *end != '\0')
+        error("getparam: %s=%s not a valid long\n", name, val);
+
+    return x;
 }
 
 double GetdParam(string name)
 {
-    return (atof(GetParam(name)));              
+    char *val = GetParam(name);
+    char *end = NULL;
+    double x;
+
+    errno = 0;
+    x = strtod(val, &end);
+
+    if (errno != 0 || end == val || *end != '\0' || !isfinite(x))
+        error("getparam: %s=%s not a valid finite double\n", name, val);
+
+    return x;
 }
+
+
 
 bool GetbParam(string name)
 {
@@ -326,17 +368,22 @@ local string ParName(string arg)
 {
     char *ap, *ep;
     static char namebuf[64];
+    size_t len;
 
     ap = (char *) arg;
     if (*ap == '<' || *ap == '>')
         ap++;
-    strncpy(namebuf, ap, 63);
-//    namebuf[63] = (char)NULL;
-    namebuf[63] = '\0';
+
+    len = strlen(ap);
+    if (len >= sizeof(namebuf))
+        len = sizeof(namebuf) - 1;
+
+    memcpy(namebuf, ap, len);
+    namebuf[len] = '\0';
+    
     ep = strchr(namebuf, '=');
     if (ep == NULL)
         return (NULL);
-//    *ep = (char)NULL;
     *ep = '\0';
     return (namebuf);
 }

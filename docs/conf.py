@@ -23,6 +23,8 @@ author = "3ptWL-mod contributors"
 
 # The full version, including alpha/beta/rc tags
 release = "1.0.0"
+version = release
+root_doc = "index"
 
 
 # -- General configuration ---------------------------------------------------
@@ -30,7 +32,7 @@ release = "1.0.0"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = []
+extensions = ["sphinx.ext.mathjax"]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = []
@@ -55,6 +57,16 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 html_theme = "sphinx_rtd_theme"
 html_title = "3ptWL-mod documentation"
 html_show_sourcelink = True
+html_theme_options = {
+    "collapse_navigation": False,
+    "navigation_depth": 3,
+}
+html_meta = {
+    "description": (
+        "3ptWL-mod documentation for weak-lensing three-point correlation "
+        "function modeling and neural-network emulation workflows."
+    )
+}
 html_context = {
     "display_github": True,
     "github_user": "sadirs",

@@ -1,15 +1,13 @@
-//==========================================================================
+/*==============================================================================
+ MODULE: startrun.c				[wlcf]
+ Written by: Mario A. Rodriguez-Meza
+ Starting date: 01.05.2026
+ Purpose: routines to initialize the main code
+ Language: C
+ Use: 'StartRun();'
+ Mayor revisions:
+ ==============================================================================*/
 //        1          2          3          4        ^ 5          6          7
-
-/*
-============================================================================
-NAME: startrun.c                             [wlcf]
-Written by: Mario A. Rodriguez-Meza
-Starting date: February 2026
-Purpose: Routines to initialize the main code
-Language: C
-*/
-//==========================================================================
 
 //
 // We must check the order of memory allocation and deallocation!!!
@@ -20,9 +18,23 @@ Language: C
 // lines where there is a "//B socket:" string are places to include module files
 //  that can be found in addons/addons_include folder
 //
-#include "global.h"
 
-local void ReadParameterFile(struct  cmdline_data*, struct  global_data*, char *);
+#include "globaldefs.h"
+#include <limits.h>
+#include <errno.h>
+
+#ifdef CLASSLIB
+#define WLCOV_FAIL(cmd, ...)                                      \
+    do {                                                          \
+        snprintf((cmd)->error_message, _ERRORMSGSIZE_, __VA_ARGS__); \
+        return FAILURE;                                           \
+    } while (0)
+#else
+#define WLCOV_FAIL(cmd, ...) error(__VA_ARGS__)
+#endif
+
+local int ReadParameterFile(struct  cmdline_data*, struct  global_data*,
+                             char *);
 local int startrun_parameterfile(struct  cmdline_data*, struct  global_data*);
 local int startrun_cmdline(struct  cmdline_data*, struct  global_data*);
 local void ReadParametersCmdline(struct  cmdline_data*, struct  global_data*);
@@ -30,16 +42,9 @@ local void ReadParametersCmdline_short(struct  cmdline_data*,
                                        struct  global_data*);
 local int CheckParameters(struct  cmdline_data*, struct  global_data*);
 
-//B Special routines to scan command line
-local int startrun_getParamsSpecial(struct  cmdline_data*, struct  global_data*);
-local int scaniOption(struct  cmdline_data*, struct  global_data*,
-                      string, int *, int *, int, int, string);
-local int scanrOption(struct  cmdline_data*, struct  global_data*,
-                      string, double *, int *, int, int, string);
-//E
 //B I/O directories:
-local void setFilesDirs_log(struct cmdline_data*, struct  global_data* gd);
-local void setFilesDirs(struct cmdline_data*, struct  global_data* gd);
+local int setFilesDirs_log(struct cmdline_data*, struct global_data* gd);
+local int setFilesDirs(struct cmdline_data*, struct global_data* gd);
 //E
 local int print_make_info(struct cmdline_data* cmd,
                      struct  global_data* gd);
@@ -52,6 +57,23 @@ local int print_make_info(struct cmdline_data* cmd,
 
 /*
  StartRun routine:
+
+ To be called in main:
+ StartRun(&cmd, &gd, argv[0], HEAD1, HEAD2, HEAD3);
+ 
+ This routine is in charge of setting all global structures in order to
+    the comutation process run smoothly with all parameters given
+    by the user, set and checked.
+
+ Arguments:
+    * `cmd`: Input: structure cmdline_data pointer
+    * `gd`: Input: structure global_data pointer
+    * `head0`: Input: string
+    * `head1`: Input: string
+    * `head2`: Input: string
+    * `head3`: Input: string
+ Return (the error status):
+    int SUCCESS or FAILURE
  */
 #ifndef CLASSLIB
 int StartRun(struct  cmdline_data* cmd, struct  global_data* gd, 
@@ -67,20 +89,22 @@ int StartRun(struct  cmdline_data* cmd, struct  global_data* gd,
            gd->headline0, gd->headline1, gd->headline2, gd->headline3);
     printf("Version = %s\n", getversion());
 
-    //B move all these to Startrun_Common... or make an appropriate change
+    gd->startrun_cputime = TRUE;
     gd->cmd_allocated = FALSE;
-    gd->cputotalinout = 0.;
-    gd->cputotal = 0.;
     gd->bytes_tot = 0;
-    //E
 
     cmd->paramfile = GetParam("paramfile");
-    if (*(cmd->paramfile)=='-')
-        error("bad parameter %s\n", cmd->paramfile);
-    if (!strnull(cmd->paramfile))
-		startrun_parameterfile(cmd, gd);
-    else
-		startrun_cmdline(cmd, gd);
+    if (*(cmd->paramfile) == '-') {
+        WLCOV_FAIL(cmd, "bad parameter %s\n", cmd->paramfile);
+    }
+    
+    if (!strnull(cmd->paramfile)) {
+        if (startrun_parameterfile(cmd, gd) == FAILURE)
+            return FAILURE;
+    } else {
+        if (startrun_cmdline(cmd, gd) == FAILURE)
+            return FAILURE;
+    }
 
     gd->bytes_tot += sizeof(struct  global_data);
     gd->bytes_tot += sizeof(struct cmdline_data);
@@ -88,12 +112,7 @@ int StartRun(struct  cmdline_data* cmd, struct  global_data* gd,
                 "\n%s: Total allocated %g MByte storage so far.\n",
                         routineName, gd->bytes_tot*INMB);
 
-//B If uncommented there will be a warning in the setup.py process
-//#ifdef OPENMPCODE
     class_call_cballs(SetNumberThreads(cmd), errmsg, errmsg);
-//#endif
-//E
-    gd->cputotalinout += CPUTIME - cpustart;
     verb_print_min_info(cmd->verbose, cmd->verbose_log, gd->outlog,
                         "\n%s CPU time: %g %s\n",
                         routineName, CPUTIME - cpustart, PRNUNITOFTIMEUSED);
@@ -110,42 +129,45 @@ int StartRun(struct  cmdline_data* cmd, struct  global_data* gd,
 {
     string routineName = "StartRun";
     struct file_content fc;
-
     double cpustart = CPUTIME;
-    
+
     gd->headline0 = head0; gd->headline1 = head1;
     gd->headline2 = head2; gd->headline3 = head3;
     printf("\n%s\n%s: %s\n\t %s\n",
            gd->headline0, gd->headline1, gd->headline2, gd->headline3);
     printf("Version = %s\n", getversion());
 
-    //B move all these to Startrun_Common... or make an appropriate change
+    gd->startrun_cputime = TRUE;
     gd->cmd_allocated = FALSE;
-//    gd->stopflag = 0;
-    gd->cputotalinout = 0.;
-    gd->cputotal = 0.;
     gd->bytes_tot = 0;
-//    gd->sameposcount = 0;
-    //E
 
     cmd->paramfile = GetParam("paramfile");
-    if (*(cmd->paramfile)=='-')
-        error("bad parameter %s\n", cmd->paramfile);
+    if (*(cmd->paramfile) == '-') {
+        WLCOV_FAIL(cmd, "bad parameter %s\n", cmd->paramfile);
+    }
+
     if (!strnull(cmd->paramfile)) {
         class_call_cballs(input_find_file(cmd, gd, cmd->paramfile, &fc, errmsg),
                           errmsg, errmsg);
-        class_call_cballs(input_read_from_file(cmd, gd, &fc, errmsg),
-                          errmsg, errmsg);
+
+        if (input_read_from_file(cmd, gd, &fc, errmsg) == FAILURE) {
+            parser_free(&fc);
+            class_call_cballs(FAILURE, errmsg, errmsg);
+        }
+
         class_call_cballs(parser_free(&fc), errmsg, errmsg);
+        
+        if (StartRun_Common(cmd, gd) == FAILURE)
+            return FAILURE;
+
+        if (PrintParameterFile(cmd, gd, cmd->paramfile) == FAILURE)
+            return FAILURE;
+        
+        
     } else {
-        startrun_cmdline(cmd, gd);
+        if (startrun_cmdline(cmd, gd) == FAILURE)
+            return FAILURE;
     }
-
-    if (!strnull(cmd->paramfile))
-        class_call_cballs(StartRun_Common(cmd, gd), errmsg, errmsg);
-
-        if (!strnull(cmd->paramfile))
-            PrintParameterFile(cmd, gd, cmd->paramfile);
 
     gd->bytes_tot += sizeof(struct  global_data);
     gd->bytes_tot += sizeof(struct cmdline_data);
@@ -153,61 +175,61 @@ int StartRun(struct  cmdline_data* cmd, struct  global_data* gd,
                "\n%s: Total allocated %g MByte storage so far.\n",
                routineName, gd->bytes_tot*INMB);
 
-//#ifdef OPENMPCODE
     class_call_cballs(SetNumberThreads(cmd), errmsg, errmsg);
-//#endif
 
-    gd->cputotalinout += CPUTIME - cpustart;
-    verb_print(cmd->verbose, "\n%s CPU time: %g %s\n",
-               routineName, CPUTIME - cpustart, PRNUNITOFTIMEUSED);
+    verb_print_min_info(cmd->verbose, cmd->verbose_log, gd->outlog,
+                        "\n%s CPU time: %g %s\n",
+                        routineName, CPUTIME - cpustart, PRNUNITOFTIMEUSED);
 
     return SUCCESS;
 }
 #endif // ! CLASSLIB
 
-/*
-Parameter-file startup routine:
-*/
-local int startrun_parameterfile(struct  cmdline_data* cmd,
-                                 struct  global_data* gd)
+local int startrun_parameterfile(struct cmdline_data* cmd,
+                                 struct global_data* gd)
 {
-	ReadParameterFile(cmd, gd, cmd->paramfile);
+    if (ReadParameterFile(cmd, gd, cmd->paramfile) == FAILURE) {
+        if (cmd->error_message[0] == '\0') {
+            snprintf(cmd->error_message, _ERRORMSGSIZE_,
+                     "ReadParameterFile: failed parsing parameter file '%s'\n",
+                     cmd->paramfile);
+        }
+        return FAILURE;
+    }
+
     ReadParametersCmdline_short(cmd, gd);
 
-//B socket:
 #ifdef ADDONS
 #include "startrun_include_01.h"
 #endif
-//E
 
-	StartRun_Common(cmd, gd);
-    PrintParameterFile(cmd, gd, cmd->paramfile);
+    if (StartRun_Common(cmd, gd) == FAILURE)
+        return FAILURE;
+
+    if (PrintParameterFile(cmd, gd, cmd->paramfile) == FAILURE)
+        return FAILURE;
 
     return SUCCESS;
 }
 
 
-#define parameter_null	"parameters_null-cballs"
+#define parameter_null	"parameters_null-wlcf"
 
-//B Section for reading parameters from the command line
-
-/*
-Command-line startup routine:
-*/
-local int startrun_cmdline(struct  cmdline_data* cmd, struct  global_data* gd)
+//B reading parameters from the command line
+local int startrun_cmdline(struct cmdline_data* cmd, struct global_data* gd)
 {
-	ReadParametersCmdline(cmd, gd);
-	StartRun_Common(cmd, gd);
-//    if (gd->flagPrint==TRUE && gd->rootDirFlag==TRUE) {
-        PrintParameterFile(cmd, gd, parameter_null);
-//    }
+    ReadParametersCmdline(cmd, gd);
+
+    if (StartRun_Common(cmd, gd) == FAILURE)
+        return FAILURE;
+
+    if (PrintParameterFile(cmd, gd, parameter_null) == FAILURE)
+        return FAILURE;
 
     return SUCCESS;
 }
-/*
-Read full command-line parameters routine:
-*/
-local void ReadParametersCmdline(struct  cmdline_data* cmd, 
+
+local void ReadParametersCmdline(struct  cmdline_data* cmd,
                                  struct  global_data* gd)
 {
 // Every item in cmdline_defs.h must have an item here::
@@ -227,7 +249,6 @@ local void ReadParametersCmdline(struct  cmdline_data* cmd,
     cmd->rootDir = GetParam("rootDir");
     cmd->fnamePS = GetParam("fnamePS");
     cmd->prefix = GetParam("prefix");
-    cmd->path_Bells = GetParam("path_Bells");
     cmd->tree_level = GetiParam("tree_level");
     cmd->zbin = GetdParam("zbin");
     cmd->mMax = GetiParam("mMax");
@@ -244,13 +265,14 @@ local void ReadParametersCmdline(struct  cmdline_data* cmd,
     //E
 
     //B Miscellaneous parameters
-    cmd->writevectors = GetiParam("writevectors");
-//    cmd->writevectors = GetbParam("writevectors");
-    cmd->chatty = GetiParam("chatty");
+    cmd->writevectors = GetbParam("writevectors");
     cmd->verbose = GetiParam("verbose");
     cmd->verbose_log = GetiParam("verbose_log");
 #ifdef OPENMPCODE
     cmd->numthreads = GetiParam("numberThreads");
+#else
+    cmd->numthreads = GetiParam("numberThreads");
+    cmd->numthreads = 1;
 #endif
     cmd->options = GetParam("options");
     //E
@@ -261,17 +283,11 @@ local void ReadParametersCmdline(struct  cmdline_data* cmd,
 #endif
 //E
 }
-/*
-Read short command-line parameters routine:
-*/
 
 local void ReadParametersCmdline_short(struct  cmdline_data* cmd, struct  global_data* gd)
 {
 //B Here add parameters needed to be read after reading parameter file
-    //B Miscellaneous parameters
-//    cmd->preScript = GetParam("preScript");
-//    cmd->posScript = GetParam("posScript");
-    //E
+//    cmd->ellmax = GetdParam("ellmax");
 //E
 }
 
@@ -280,11 +296,7 @@ local void ReadParametersCmdline_short(struct  cmdline_data* cmd, struct  global
 #undef parameter_null
 
 //B Section of parameter reading from a file
-
-/*
-Parameter-file reading routine:
-*/
-local void ReadParameterFile(struct  cmdline_data* cmd, 
+local int ReadParameterFile(struct  cmdline_data* cmd,
                              struct  global_data* gd, char *fname)
 {
 // Every item in cmdline_defs.h must have an item here::
@@ -304,6 +316,8 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
   void *addr[MAXTAGS];
   char tag[MAXTAGS][50];
   int  errorFlag=0;
+
+    size_t str_size[MAXTAGS];
 
     int input_verbose = 2;
     verb_print(input_verbose, "\nparsing input parameters...\n");
@@ -327,7 +341,6 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
     // Output parameters
     SPName(cmd->prefix,"prefix",MAXLENGTHOFSTRSCMD);
     SPName(cmd->rootDir,"rootDir",MAXLENGTHOFSTRSCMD);
-    SPName(cmd->path_Bells,"path_Bells",MAXLENGTHOFSTRSCMD);
     IPName(cmd->tree_level,"tree_level");
     RPName(cmd->zbin,"zbin");
     IPName(cmd->mMax,"mMax");
@@ -345,14 +358,14 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
     //E
 
     //B Miscellaneous parameters
-    IPName(cmd->writevectors,"writevectors");
-//    SPName(cmd->preScript,"preScript",MAXLENGTHOFSTRSCMD);
-//    SPName(cmd->posScript,"posScript",MAXLENGTHOFSTRSCMD);
-    IPName(cmd->chatty,"chatty");
+    BPName(cmd->writevectors,"writevectors");
     IPName(cmd->verbose,"verbose");
     IPName(cmd->verbose_log,"verbose_log");
 #ifdef OPENMPCODE
     IPName(cmd->numthreads,"numberThreads");
+#else
+    IPName(cmd->numthreads,"numberThreads");
+    cmd->numthreads = 1;
 #endif
     SPName(cmd->options,"options",MAXLENGTHOFSTRSCMD);
     //E
@@ -362,14 +375,6 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
 #include "startrun_include_03.h"
 #endif
 //E
-
-    size_t slen;
-    char *script1;
-    char *script2;
-    char *script3;
-    char *script4;
-    char buf4[MAXCHARBUF];
-    char buf5[MAXCHARBUF];
 
 //B
 #ifndef _LINE_LENGTH_MAX_
@@ -386,10 +391,8 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
 //E
 
     if((fd=fopen(fname,"r"))) {
-        while(!feof(fd)) {
+        while (fgets(line, MAXCHARBUF, fd) != NULL) {
 //B
-            fgets(line,MAXCHARBUF,fd);
-
             pequal=strchr(line,'=');
             if (pequal == NULL)
                 continue;
@@ -408,12 +411,15 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
               left++;
             }
             right=pequal-1;
-            while (right[0]==' ') {
+
+            while (right >= left && right[0] == ' ') {
               right--;
             }
-            if(right[0]=='\'' || right[0]=='\"'){
+
+            if (right >= left && (right[0] == '\'' || right[0] == '\"')) {
               right--;
             }
+            
 
             if (right-left < 0) {
                 fprintf(stdout,
@@ -423,8 +429,14 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
                 continue;
             }
 
-            strncpy(name,left,right-left+1);
-            name[right-left+1]='\0';
+            if ((size_t)(right - left + 1) >= sizeof(name)) {
+                if (fd != NULL) fclose(fd);
+                WLCOV_FAIL(cmd, "%s: parameter name too long\n", routineName);
+            }
+
+            memcpy(name, left, (size_t)(right - left + 1));
+            name[right - left + 1] = '\0';
+
 
             left = pequal+1;
             while (left[0]==' ') {
@@ -436,15 +448,20 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
             else
               right = phash-1;
 
-            while (right[0]<=' ') {
-              right--;
+            while (right >= left && right[0] <= ' ') {
+                right--;
             }
 
-            if (right-left < 0)
+            if (right < left)
                 continue;
 
-            strncpy(value,left,right-left+1);
-            value[right-left+1]='\0';
+            if ((size_t)(right - left + 1) >= sizeof(value)) {
+                if (fd != NULL) fclose(fd);
+                WLCOV_FAIL(cmd, "%s: parameter value too long\n", routineName);
+            }
+            
+            memcpy(value, left, (size_t)(right - left + 1));
+            value[right - left + 1] = '\0';
 //E
 
             for(i=0,j=-1;i<nt;i++)
@@ -455,83 +472,75 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
                 }
             if(j>=0) {
                 switch(id[j]) {
-                    case DOUBLE:
-                        *((double*)addr[j])=atof(value);
+                    case DOUBLE: {
+                        char *end = NULL;
+                        double x;
+
+                        errno = 0;
+                        x = strtod(value, &end);
+
+                        if (errno != 0 || end == value || *end != '\0' || !isfinite(x)) {
+                            fclose(fd);
+                            snprintf(cmd->error_message, _ERRORMSGSIZE_,
+                                     "%s: %s=%s not a valid finite double\n",
+                                     routineName, name, value);
+                            return FAILURE;
+                            
+                        }
+
+                        *((double*)addr[j]) = x;
                         break;
+                    }
+                        
                     case STRING:
-                        if (strcmp(name,"preScript") == 0){ // To remove both '"'
-                            int index;
-                            size_t slen;
-                            slen = strlen(value);
-                            //B
-                            script1 = (char*) malloc(1*sizeof(char));
-                            memcpy(script1,value,1);
-                            script2 = strchr(script1, '"');
-                            if (script2 == NULL)
-                                error("preScript parameter needs enclosing script with \"\"!! (%s)\n\n",
-                                      value);
-                            free(script1);
-                            //E
-                            //B
-                            script1 = (char*) malloc((slen-1)*sizeof(char));
-                            memcpy(script1,value+1,slen-1);
-                            script2 = strchr(script1, '"');
-                            if (script2 == NULL)
-                                error("preScript parameter needs enclosing script with \"\"!! (%s)\n\n",
-                                      value);
-                            free(script1);
-                            //E
-                            cmd->preScript = (char*) malloc((slen-2)*sizeof(char));
-                            script1 = (char*) malloc(slen*sizeof(char));
-                            memcpy(script1,value,slen);
-                            script2 = strchr(script1, '"');
-                            if (script2 == NULL)
-                                error("preScript parameter needs enclosing script with \"\"!! (%s)\n\n",
-                                      script1);
-                            memcpy(cmd->preScript,script2+1,slen-2);
-                            free(script1);
-                        } else {
-                            if (strcmp(name,"posScript")==0){// To remove both '"'
-                                int index;
-                                size_t slen;
-                                slen = strlen(value);
-                                //B
-                                script1 = (char*) malloc(1*sizeof(char));
-                                memcpy(script1,value,1);
-                                script2 = strchr(script1, '"');
-                                if (script2 == NULL)
-                                    error("posScript parameter needs enclosing script with \"\"!! (%s)\n\n",
-                                          value);
-                                free(script1);
-                                //E
-                                //B
-                                script1 = (char*) malloc((slen-1)*sizeof(char));
-                                memcpy(script1,value+1,slen-1);
-                                script2 = strchr(script1, '"');
-                                if (script2 == NULL)
-                                    error("posScript parameter needs enclosing script with \"\"!! (%s)\n\n",
-                                          value);
-                                free(script1);
-                                //E
-                                cmd->posScript=(char*) malloc((slen-2)*sizeof(char));
-                                script1 = (char*) malloc(slen*sizeof(char));
-                                memcpy(script1,value,slen);
-                                script2 = strchr(script1, '"');
-                                if (script2 == NULL)
-                                    error("posScript parameter needs enclosing script with \"\"!! (%s)\n\n",
-                                          script1);
-                                memcpy(cmd->posScript,script2+1,slen-2);
-                                free(script1);
-                            } else
-                                strcpy(addr[j],value);
+                        if (copy_checked((char *)addr[j], str_size[j], value, name) != 0) {
+                            if (fd != NULL) fclose(fd);
+                            WLCOV_FAIL(cmd, "%s: string parameter '%s' too long\n",
+                                       routineName, name);
                         }
                         break;
-                    case INT:
-                        *((int*)addr[j])=atoi(value);
+
+                    case INT: {
+                        char *end = NULL;
+                        long x;
+
+                        errno = 0;
+                        x = strtol(value, &end, 10);
+
+                        if (errno != 0 || end == value || *end != '\0' ||
+                            x < INT_MIN || x > INT_MAX) {
+                            fclose(fd);
+                            snprintf(cmd->error_message, _ERRORMSGSIZE_,
+                                     "%s: %s=%s not a valid finite int\n",
+                                     routineName, name, value);
+                            return FAILURE;
+
+                        }
+
+                        *((int*)addr[j]) = (int)x;
                         break;
-                    case LONG:
-                        *((long*)addr[j])=atol(value);
+                    }
+                        
+                    case LONG: {
+                        char *end = NULL;
+                        long x;
+
+                        errno = 0;
+                        x = strtol(value, &end, 10);
+
+                        if (errno != 0 || end == value || *end != '\0') {
+                            fclose(fd);
+                            snprintf(cmd->error_message, _ERRORMSGSIZE_,
+                                     "%s: %s=%s not a valid finite long\n",
+                                     routineName, name, value);
+                            return FAILURE;
+
+                        }
+
+                        *((long*)addr[j]) = x;
                         break;
+                    }
+                        
                     case BOOLEAN:
                         if (strchr("tTyY1", *value) != NULL) {
                             *((bool*)addr[j])=TRUE;
@@ -539,7 +548,8 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
                             if (strchr("fFnN0", *value) != NULL)  {
                                 *((bool*)addr[j])=FALSE;
                             } else {
-                                error("getbparam: %s=%s not bool\n",name,value);
+                                if (fd != NULL) fclose(fd);
+                                WLCOV_FAIL(cmd, "%s: %s=%s not bool\n", routineName, name, value);
                             }
                         break;
                 }
@@ -547,7 +557,6 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
                 fprintf(stdout, "\n%s: Error in file %s: Tag '%s' %s\n",
                         routineName, fname, name,
                         "not allowed or multiple defined...");
-//                        "look at saved parameter file which value was used");
                 errorFlag=1;
             }
         } // ! while loop
@@ -555,12 +564,13 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
     } else {
         fprintf(stdout,"Parameter file %s not found.\n", fname);
         errorFlag=2;
-        exit(0);
+        WLCOV_FAIL(cmd, "Parameter file %s not found.\n", fname);
     }
 
-    if (errorFlag==1)
-        error("%s: going out\n", routineName);
-
+    if (errorFlag == 1)
+        WLCOV_FAIL(cmd, "%s: parameter file '%s' contains unknown or duplicated tags\n",
+                   routineName, fname);
+    
     for(i=0;i<nt;i++) {
         if(*tag[i]) {
             if (cmd->verbose>2)
@@ -571,9 +581,13 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
                 case DOUBLE:
                     *((double*)addr[i])=GetdParam(tag[i]);
                     break;
+                    
                 case STRING:
-                    strcpy(addr[i],GetParam(tag[i]));
+                    if (copy_checked((char *)addr[i], str_size[i], GetParam(tag[i]), tag[i]) != 0)
+                        WLCOV_FAIL(cmd, "%s: default string parameter '%s' too long\n",
+                                   routineName, tag[i]);
                     break;
+
                 case INT:
                     *((int*)addr[i])=GetiParam(tag[i]);
                     break;
@@ -594,20 +608,54 @@ local void ReadParameterFile(struct  cmdline_data* cmd,
 #undef BOOLEAN
 #undef MAXTAGS
 #undef MAXCHARBUF
+    
+    return SUCCESS;
 }
 //E
-/*
-Common startup routine:
-*/
+
 int StartRun_Common(struct  cmdline_data* cmd, struct  global_data* gd)
 {
     string routineName = "StartRun_Common";
-    double cpustart;
-    double cpustartMiddle;
 
-    debug_tracking_s("001", routineName);
+#ifndef USEGSL
+#error `USEGSL` is not defined. Switch it on in Makefile_settings
+#endif
 
-    if (strlen(cmd->rootDir)==0 || strnull(cmd->rootDir))
+    //B
+    if (cmd == NULL || gd == NULL)
+        return FAILURE;
+
+    if (gd->cmd_allocated != TRUE) {
+        gd->optionsFlag = FALSE;
+        gd->rootDirFlagFree = FALSE;
+        gd->prefixFlag = FALSE;
+        gd->fWgchiFlag = FALSE;
+        gd->fnamePSFlag = FALSE;
+    }
+    
+    if (cmd->rootDir == NULL || strlen(cmd->rootDir) == 0) {
+        if (cmd->rootDir != NULL && gd->rootDirFlagFree == TRUE) {
+            free(cmd->rootDir);
+            gd->rootDirFlagFree = FALSE;
+        }
+
+        cmd->rootDir = ".";
+    }
+
+    if (cmd->options == NULL) {
+        cmd->options = "";
+        gd->optionsFlag = FALSE;
+    }
+    //E
+    
+    if (gd->cmd_allocated != TRUE)
+        gd->cmd_allocated = TRUE;
+
+    gd->gd_allocated = FALSE;
+    gd->tables_allocated = FALSE;
+    gd->outlog = NULL;
+    
+    if (strnull(cmd->rootDir))
         gd->rootDirFlag = FALSE;
     else
         gd->rootDirFlag = TRUE;
@@ -623,25 +671,27 @@ int StartRun_Common(struct  cmdline_data* cmd, struct  global_data* gd)
 #endif
 //E
 
-    debug_tracking("002");
-    debug_tracking("003");
     class_call_cballs(StartOutput(cmd, gd), errmsg, errmsg);
-    debug_tracking("004");
-    setFilesDirs(cmd, gd);
-    setFilesDirs_log(cmd, gd);
-    strcpy(gd->mode,"w");
-    if (cmd->verbose_log>0) {               // gd->outlog is defined
-        if(!(gd->outlog=fopen(gd->logfilePath, gd->mode)))
-            error("\n%s: error opening file '%s' \n",
-                  routineName, gd->logfilePath);
-    }
+    class_call_cballs(setFilesDirs(cmd, gd), errmsg, errmsg);
+    class_call_cballs(setFilesDirs_log(cmd, gd), errmsg, errmsg);
 
-    class_call_cballs(startrun_getParamsSpecial(cmd, gd), errmsg, errmsg);
-    class_call_cballs(CheckParameters(cmd, gd), errmsg, errmsg);
-    class_call_cballs(startrun_memoryAllocation(cmd, gd), errmsg, errmsg);
+    gd->mode[0] = 'w';
+    gd->mode[1] = '\0';
+    //B gd->outlog is defined
+    if (cmd->verbose_log>0 && gd->rootDirFlag == TRUE) {
+        if (!(gd->outlog = fopen(gd->logfilePath, gd->mode))) {
+            WLCOV_FAIL(cmd, "\n%s: error opening file '%s'\n",
+                       routineName, gd->logfilePath);
+        }
+    }
+    //E
 
     cmd->Omm=cmd->Omb+cmd->Omc+cmd->Omnu;
     cmd->Omw=1.-cmd->Omm;
+
+    class_call_cballs(CheckParameters(cmd, gd), errmsg, errmsg);
+    class_call_cballs(startrun_memoryAllocation(cmd, gd), errmsg, errmsg);
+
     verb_print_normal_info(cmd->verbose, cmd->verbose_log, gd->outlog,
                           "%s: OmegaM = : %f\n",
                            routineName, cmd->Omm);
@@ -651,57 +701,213 @@ int StartRun_Common(struct  cmdline_data* cmd, struct  global_data* gd)
 #include "startrun_include_05.h"
 #endif
 //E
-
-    debug_tracking_s("005... final", routineName);
+    gd->gd_allocated = TRUE;
 
     return SUCCESS;
 }
 
-//B Section of parameter check
 
-/*
-Parameter checking routine:
-*/
+//B Section of parameter check
 local int CheckParameters(struct  cmdline_data* cmd, struct  global_data* gd)
 {
 // If it is necessary: an item in cmdline_defs.h must have an item here::
     string routineName = "CheckParameters";
 
-    debug_tracking_s("001", routineName);
+    
+//
+//  cleanup note: the old range-only checks are still
+//  above the new finite checks,
+//  so CheckParameters() now has some duplicate validation.
+//  It compiles and works,
+//  but later may want to merge those blocks into one cleaner validation section.
+//
 
-    //B Parameters related to the cosmological background
     if (cmd->z < 0.0)
-        error("\n%s: Redshift (%g) can not be less than 0.\n",
-              routineName, cmd->z);
-    if (cmd->h < 0.0)
-        error("\n%s: Hubble parameter (%g) can not be less than 0.\n",
-              routineName, cmd->h);
-    if (cmd->sigma8 < 0.0)
-        error("\n%s: sigma8 (%g) can not be less than 0.\n",
-              routineName, cmd->sigma8);
-    if (cmd->Omb < 0.0)
-        error("\n%s: Omega baryon parameter (%g) can not be less than 0.\n",
-              routineName, cmd->Omb);
-    if (cmd->Omc < 0.0)
-        error("\n%s: Omega CDM parameter (%g) can not be less than 0.\n",
-              routineName, cmd->Omc);
-    if (cmd->Omnu < 0.0)
-        error("\n%s: Omega nu parameter (%g) can not be less than 0.\n",
-              routineName, cmd->Omnu);
-    if (cmd->ns < 0.0)
-        error("\n%s: Spectral index parameter ns (%g) can not be less than 0.\n",
-              routineName, cmd->ns);
-//    if (cmd->w < 0.0)
-//        error("\n%s: Equation of state parameter w (%g) can not be less than 0.\n",
-//             routineName, cmd->w);
-    //E
+        WLCOV_FAIL(cmd, "\n%s: z (%g) can not be less than 0.\n",
+                   routineName, cmd->z);
 
+    if (cmd->h <= 0.0)
+        WLCOV_FAIL(cmd, "\n%s: Hubble parameter (%g) can not be less than 0.\n",
+                   routineName, cmd->h);
+
+    if (cmd->sigma8 <= 0.0 || !isfinite(cmd->sigma8))
+        WLCOV_FAIL(cmd, "\n%s: sigma8 (%g) must be positive and finite.\n",
+                   routineName, cmd->sigma8);
+
+    if (cmd->Omb < 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Omega baryon parameter (%g) can not be less than 0.\n",
+                   routineName, cmd->Omb);
+
+    if (cmd->Omc < 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Omega CDM parameter (%g) can not be less than 0.\n",
+                   routineName, cmd->Omc);
+
+    if (cmd->Omnu < 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Omega nu parameter (%g) can not be less than 0.\n",
+                   routineName, cmd->Omnu);
+
+    if (!isfinite(cmd->Omm))
+        WLCOV_FAIL(cmd,
+                   "\n%s: Omega matter parameter Omm (%g) must be finite.\n",
+                   routineName, cmd->Omm);
+
+    if (cmd->Omm <= 0.0 || cmd->Omm > 1.0)
+        WLCOV_FAIL(cmd,
+        "\n%s: Omega matter parameter Omm (%g = Omb+Omc+Omnu) must be in (0, 1].\n",
+        routineName, cmd->Omm);
+
+    if (!isfinite(cmd->Omw))
+        WLCOV_FAIL(cmd,
+                "\n%s: Omega dark energy parameter Omw (%g) must be finite.\n",
+                routineName, cmd->Omw);
+
+    if (cmd->Omw < 0.0)
+        WLCOV_FAIL(cmd,
+        "\n%s: Omega dark energy parameter Omw (%g = 1-Omm) must be non-negative.\n",
+        routineName, cmd->Omw);
+
+    if (!isfinite(cmd->w))
+        WLCOV_FAIL(cmd,
+                   "\n%s: dark energy equation-of-state w (%g) must be finite.\n",
+                   routineName, cmd->w);
+
+    if (cmd->ns < 0.0)
+        WLCOV_FAIL(cmd,
+            "\n%s: Spectral index parameter ns (%g) can not be less than 0.\n",
+            routineName, cmd->ns);
+
+    if (cmd->Nell < 8)
+        WLCOV_FAIL(cmd,
+        "\n%s: Nell (%d) must be at least 8 for FFTLog c_window_width=0.25.\n",
+        routineName, cmd->Nell);
+
+    if (cmd->Nell % 2 != 0)
+        WLCOV_FAIL(cmd, "\n%s: Nell (%d) must be even.\n",
+                   routineName, cmd->Nell);
+
+    if (cmd->ellmin <= 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: ellmin (%g) must be positive.\n",
+                   routineName, cmd->ellmin);
+
+    if (cmd->ellmax <= cmd->ellmin)
+        WLCOV_FAIL(cmd,
+                   "\n%s: ellmax (%g) must be greater than ellmin (%g).\n",
+                   routineName, cmd->ellmax, cmd->ellmin);
+    if (cmd->numthreads < 1)
+        WLCOV_FAIL(cmd,
+                   "\n%s: numberThreads (%d) must be at least 1.\n",
+                   routineName, cmd->numthreads);
+
+    if (cmd->chiQuadSteps < 2)
+        WLCOV_FAIL(cmd,
+                   "\n%s: chiQuadSteps (%d) must be at least 2.\n",
+                   routineName, cmd->chiQuadSteps);
+
+    if (cmd->GLpoints < 2)
+        WLCOV_FAIL(cmd,
+                   "\n%s: GLpoints (%d) must be at least 2.\n",
+                   routineName, cmd->GLpoints);
+    
+    if (cmd->mMax < 0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: mMax (%d) must be greater than or equal to 0.\n",
+                   routineName, cmd->mMax);
+
+    if (cmd->Wg != 0 && cmd->Wg != 1)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Wg (%d) must be 0 or 1.\n",
+                   routineName, cmd->Wg);
+
+    if (cmd->zbin <= 0.)
+        WLCOV_FAIL(cmd,
+                   "\n%s: zbin (%g) must be > 0.\n",
+                   routineName, cmd->zbin);
+    
+    if (cmd->mMax == INT_MAX)
+        WLCOV_FAIL(cmd,
+                   "\n%s: mMax (%d) is too large.\n",
+                   routineName, cmd->mMax);
+
+    size_t Nell = (size_t)cmd->Nell;
+    size_t NumMoments = (size_t)cmd->mMax + 1;
+    size_t size_max = (size_t)-1;
+
+    if (Nell > (size_t)INT_MAX / Nell)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Nell (%d) is too large: Nell*Nell overflows int loops.\n",
+                   routineName, cmd->Nell);
+
+    size_t Nell2 = Nell * Nell;
+
+    if (Nell2 > size_max / sizeof(double))
+        WLCOV_FAIL(cmd,
+                   "\n%s: Nell (%d) is too large for one Nell*Nell double array.\n",
+                   routineName, cmd->Nell);
+
+    if (NumMoments > size_max / sizeof(double *))
+        WLCOV_FAIL(cmd,
+                   "\n%s: mMax (%d) is too large for moment pointer arrays.\n",
+                   routineName, cmd->mMax);
+
+    if (NumMoments > size_max / Nell2 / sizeof(double))
+        WLCOV_FAIL(cmd,
+                   "\n%s: Nell (%d) and mMax (%d) request too much Bm storage.\n",
+                   routineName, cmd->Nell, cmd->mMax);
+
+    //B
+    if (!isfinite(cmd->z) || cmd->z < 0.0)
+        WLCOV_FAIL(cmd, "\n%s: z (%g) must be finite and >= 0.\n",
+                   routineName, cmd->z);
+
+    if (!isfinite(cmd->h) || cmd->h <= 0.0)
+        WLCOV_FAIL(cmd, "\n%s: Hubble parameter h (%g) must be finite and > 0.\n",
+                   routineName, cmd->h);
+
+    if (!isfinite(cmd->Omb) || cmd->Omb < 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Omega baryon parameter (%g) must be finite and >= 0.\n",
+                   routineName, cmd->Omb);
+
+    if (!isfinite(cmd->Omc) || cmd->Omc < 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Omega CDM parameter (%g) must be finite and >= 0.\n",
+                   routineName, cmd->Omc);
+
+    if (!isfinite(cmd->Omnu) || cmd->Omnu < 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Omega nu parameter (%g) must be finite and >= 0.\n",
+                   routineName, cmd->Omnu);
+
+    if (!isfinite(cmd->ns) || cmd->ns < 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: Spectral index parameter ns (%g) must be finite and >= 0.\n",
+                   routineName, cmd->ns);
+
+    if (!isfinite(cmd->ellmin) || cmd->ellmin <= 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: ellmin (%g) must be finite and positive.\n",
+                   routineName, cmd->ellmin);
+
+    if (!isfinite(cmd->ellmax) || cmd->ellmax <= cmd->ellmin)
+        WLCOV_FAIL(cmd,
+                   "\n%s: ellmax (%g) must be finite and greater than ellmin (%g).\n",
+                   routineName, cmd->ellmax, cmd->ellmin);
+
+    if (!isfinite(cmd->zbin) || cmd->zbin <= 0.0)
+        WLCOV_FAIL(cmd,
+                   "\n%s: zbin (%g) must be finite and > 0.\n",
+                   routineName, cmd->zbin);
+    //E
+    
 //B socket:
 #ifdef ADDONS
 #include "startrun_include_07.h"
 #endif
 //E
-    debug_tracking_s("002... final", routineName);
 
     return SUCCESS;
 }
@@ -715,28 +921,27 @@ local int CheckParameters(struct  cmdline_data* cmd, struct  global_data* gd)
 #define FMTR	"%-35s = %g\n"
 
 //B Section of parameter writing to a file
-
-/*
-Parameter-file writing routine:
-*/
 int PrintParameterFile(struct  cmdline_data *cmd,
                        struct  global_data* gd, char *fname)
 {
 // Every item in cmdline_defs.h must have an item here::
     string routineName = "PrintParameterFile";
 
-    FILE *fdout;
-    char buf[200];
-    int  errorFlag=0;
+    int nwrite;
 
-    debug_tracking_s("001", routineName);
+    FILE *fdout = NULL;
+    char buf[BUFFERSIZE];
+    char *dp = NULL;
+    int errorFlag = 0;
+    
+    if (cmd == NULL || gd == NULL || fname == NULL)
+        return FAILURE;
 
     if (gd->flagPrint==TRUE && gd->rootDirFlag==TRUE) {
         //B Look for "/" if fname is composed: path and filename
         int ndefault = 0;
         int ipos;
-        char *dp;
-        for (int i; i< strlen(fname); i++) {
+        for (int i=0; i< strlen(fname); i++) {
             if(fname[i] == '/') {
                 ipos = i+1;
                 ndefault++;
@@ -744,14 +949,31 @@ int PrintParameterFile(struct  cmdline_data *cmd,
         }
         
         if (ndefault == 0) {
-            sprintf(buf,"%s/%s%s",cmd->rootDir,fname,"-usedvalues");
+            nwrite = snprintf(buf, sizeof(buf), "%s/%s%s",
+                              cmd->rootDir, fname, "-usedvalues");
+            if (nwrite < 0 || (size_t)nwrite >= sizeof(buf))
+                WLCOV_FAIL(cmd, "\n%s: output path too long\n",routineName);
         } else {
-            dp = (char*) malloc((strlen(fname)-ipos)*sizeof(char));
-            strncpy(dp, fname + ipos, strlen(fname)-ipos);
+            size_t dplen = strlen(fname) - ipos;
+            dp = (char*) malloc((dplen + 1) * sizeof(char));
+            if (dp == NULL)
+                WLCOV_FAIL(cmd, "\n%s: not enough memory\n",routineName);
+            nwrite = snprintf(dp, dplen + 1, "%s", fname + ipos);
+            if (nwrite < 0 || (size_t)nwrite >= dplen + 1) {
+                free(dp);
+                WLCOV_FAIL(cmd, "\n%s: filename too long\n",routineName);
+            }
+
             verb_print_q(3,cmd->verbose,
                          "PrintParameterFile: '/' counts %d pos %d and %s\n",
                          ndefault, ipos, dp);
-            sprintf(buf,"%s/%s%s",cmd->rootDir,dp,"-usedvalues");
+            nwrite = snprintf(buf, sizeof(buf), "%s/%s%s",
+                              cmd->rootDir, dp, "-usedvalues");
+            if (nwrite < 0 || (size_t)nwrite >= sizeof(buf)) {
+                free(dp);
+                WLCOV_FAIL(cmd, "\n%s: output path too long\n",routineName);
+            }
+
         }
         //E
         
@@ -768,14 +990,6 @@ int PrintParameterFile(struct  cmdline_data *cmd,
             fprintf(fdout,FMTR,"Omnu",cmd->Omnu);
             fprintf(fdout,FMTR,"ns",cmd->ns);
             fprintf(fdout,FMTR,"w",cmd->w);
-
-
-//            fprintf(fdout,FMTI,"mChebyshev",cmd->mChebyshev);
-//            fprintf(fdout,FMTI,"nsmooth",cmd->nsmooth);
-//            fprintf(fdout,FMTT,"rsmooth",cmd->rsmooth);
-//            fprintf(fdout,FMTR,"theta",cmd->theta);
-//            fprintf(fdout,FMTT,"usePeriodic",
-//                    cmd->usePeriodic ? "true" : "false");
             //E
             
             //B Parameters to control the I/O file(s)
@@ -785,7 +999,6 @@ int PrintParameterFile(struct  cmdline_data *cmd,
             fprintf(fdout,FMTT,"fWgchi",cmd->fWgchi);
             // Output parameters
             fprintf(fdout,FMTT,"rootDir",cmd->rootDir);
-            fprintf(fdout,FMTT,"path_Bells",cmd->path_Bells);
             fprintf(fdout,FMTT,"prefix",cmd->prefix);
             fprintf(fdout,FMTI,"tree_level",cmd->tree_level);
             fprintf(fdout,FMTR,"zbin",cmd->zbin);
@@ -801,45 +1014,52 @@ int PrintParameterFile(struct  cmdline_data *cmd,
             //E
 
             //B Miscellaneous parameters
-            fprintf(fdout,FMTI,"writevectors",cmd->writevectors);
-//            fprintf(fdout,FMTTS,"preScript",cmd->preScript);
-//            fprintf(fdout,FMTTS,"posScript",cmd->posScript);
-            fprintf(fdout,FMTI,"chatty",cmd->chatty);
+            fprintf(fdout,FMTT,"writevectors",cmd->writevectors ? "true" : "false");
             fprintf(fdout,FMTI,"verbose",cmd->verbose);
             fprintf(fdout,FMTI,"verbose_log",cmd->verbose_log);
-#ifdef OPENMPCODE
             fprintf(fdout,FMTI,"numberThreads",cmd->numthreads);
-#endif
-            if (cmd->verbose>=VERBOSEDEBUGINFO) {
-                verb_print(cmd->verbose, "\n%s: PrintParamterFile: preScript: %s\n",
-                           routineName, cmd->preScript);
-                verb_print(cmd->verbose, "\n%s: PrintParamterFile: posScript: %s\n",
-                           routineName, cmd->posScript);
-            }
             fprintf(fdout,FMTT,"options",cmd->options);
             //E
             
-            //B socket:
+//B socket:
 #ifdef ADDONS
 #include "startrun_include_08.h"
 #endif
-            //E
+//E
+            fprintf(fdout, "\n\n");
+
+            if (ferror(fdout)) {
+                errorFlag = 1;
+                goto cleanup;
+            }
+
+            if (fclose(fdout) != 0) {
+                fdout = NULL;
+                errorFlag = 1;
+                goto cleanup;
+            }
+            fdout = NULL;
             
-            fprintf(fdout,"\n\n");
-        }
-        fclose(fdout);
-        
-        if(errorFlag) {
-            exit(0);
         }
         
-        if (ndefault != 0)
-            free(dp);
+        cleanup:
+            if (fdout != NULL) {
+                fclose(fdout);
+                fdout = NULL;
+            }
+
+            if (dp != NULL) {
+                free(dp);
+                dp = NULL;
+            }
+
+            if (errorFlag) {
+                WLCOV_FAIL(cmd, "\n%s: error writing parameter file '%s'\n",
+                           routineName, buf);
+            }
+        
         
     } // ! gd->flagPrint==TRUE && gd->rootDirFlag==TRUE
-
-    debug_tracking_s("002... final", routineName);
-
 
     return SUCCESS;
 }
@@ -849,252 +1069,317 @@ int PrintParameterFile(struct  cmdline_data *cmd,
 #undef FMTTS
 #undef FMTI
 #undef FMTR
-/*
-Memory-allocation startup routine:
-*/
+
+// Free allocated memory in reverse order as were allocated
 int startrun_memoryAllocation(struct  cmdline_data *cmd,
                                      struct  global_data* gd)
 {
     string routineName = "startrun_memoryAllocation";
-    // Free allocated memory in reverse order as were allocated
-
+    int status = SUCCESS;
+    int bm_rows = 0;
+    int zv_rows = 0;
     INTEGER bytes_tot_local=0;
-    //B PXD functions
-#ifdef PXD
-#endif
-    bytes_tot_local += 0.0*sizeof(real);
-    //E PXD functions
 
-//B socket:
-#ifdef ADDONS
-    // this is empty and can be remove these 3 lines
-#include "startrun_include_10.h"                    // should be sync with
-                                                //  "cballsio_include_10.h"
-#endif
-//E
+    //B
+    if (cmd == NULL || gd == NULL)
+        return FAILURE;
 
+    if (!isfinite(cmd->zbin) || cmd->zbin <= 0.0)
+        WLCOV_FAIL(cmd, "\n%s: zbin (%g) must be finite and > 0.\n",
+                   routineName, cmd->zbin);
+
+    if (cmd->chiQuadSteps < 2)
+        WLCOV_FAIL(cmd, "\n%s: chiQuadSteps (%d) must be at least 2.\n",
+                   routineName, cmd->chiQuadSteps);
+
+    if (cmd->Nell < 8)
+        WLCOV_FAIL(cmd, "\n%s: Nell (%d) must be at least 8.\n",
+                   routineName, cmd->Nell);
+
+    if (cmd->Nell % 2 != 0)
+        WLCOV_FAIL(cmd, "\n%s: Nell (%d) must be even.\n",
+                   routineName, cmd->Nell);
+
+    if (!isfinite(cmd->ellmin) || cmd->ellmin <= 0.0)
+        WLCOV_FAIL(cmd, "\n%s: ellmin (%g) must be finite and positive.\n",
+                   routineName, cmd->ellmin);
+
+    if (!isfinite(cmd->ellmax) || cmd->ellmax <= cmd->ellmin)
+        WLCOV_FAIL(cmd, "\n%s: ellmax (%g) must be finite and greater than ellmin (%g).\n",
+                   routineName, cmd->ellmax, cmd->ellmin);
+
+    if (cmd->mMax < 0 || cmd->mMax == INT_MAX)
+        WLCOV_FAIL(cmd, "\n%s: mMax (%d) is invalid.\n",
+                   routineName, cmd->mMax);
+
+    size_t Nell = (size_t)cmd->Nell;
+    size_t Nell2 = Nell * Nell;
+    size_t NumMoments = (size_t)cmd->mMax + 1;
+    size_t size_max = (size_t)-1;
+
+    if (Nell > (size_t)INT_MAX / Nell)
+        WLCOV_FAIL(cmd, "\n%s: Nell (%d) is too large for int loops.\n",
+                   routineName, cmd->Nell);
+
+    if (Nell2 > size_max / sizeof(double))
+        WLCOV_FAIL(cmd, "\n%s: Nell (%d) is too large for Nell*Nell arrays.\n",
+                   routineName, cmd->Nell);
+
+    if (NumMoments > size_max / sizeof(double *))
+        WLCOV_FAIL(cmd, "\n%s: mMax (%d) is too large for moment pointers.\n",
+                   routineName, cmd->mMax);
+
+    if (NumMoments > size_max / Nell2 / sizeof(double))
+        WLCOV_FAIL(cmd, "\n%s: Nell (%d) and mMax (%d) request too much Bm storage.\n",
+                   routineName, cmd->Nell, cmd->mMax);
+    
+    int NumMomentsInt = cmd->mMax + 1;
+    //E
+    
+    gv.chiforgLT = NULL;
+    gv.gLT = NULL;
+    gv.zT = NULL;
+    gv.chiOfzT = NULL;
+    gv.DpT = NULL;
+
+    iv.zT_chiint = NULL;
+    /* ... all iv pointers ... */
+    iv.BmVectors = NULL;
+    iv.BmVectorsp = NULL;
+
+    zv.r1 = NULL;
+    zv.r2 = NULL;
+    zv.result = NULL;
+    
+    //B gv tables
+    //B inside compute_gL
+    gv.NstepsforgL=1000;
+    int Nsteps=gv.NstepsforgL;
+    gv.chiforgLT = calloc((size_t)Nsteps, sizeof(*gv.chiforgLT));
+    if (gv.chiforgLT == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating gv.chiforgLT\n",
+                        routineName);
+    }
+    
+    gv.gLT = calloc((size_t)Nsteps, sizeof(*gv.gLT));
+    if (gv.gLT == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating gv.gLT\n",
+                        routineName);
+    }
+    //E
+
+    //B inside background
+    gv.zMax = 3.0*cmd->zbin;
+    gv.zMin = 0.0;
+    gv.Nz   = 200;
+    gv.zT = calloc((size_t)gv.Nz, sizeof(*gv.zT));
+    if (gv.zT == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating gv.zT\n",
+                        routineName);
+    }
+    gv.chiOfzT = calloc((size_t)gv.Nz, sizeof(*gv.chiOfzT));
+    if (gv.chiOfzT == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating gv.chiOfzT\n",
+                        routineName);
+    }
+    gv.DpT = calloc((size_t)gv.Nz, sizeof(*gv.DpT));
+    if (gv.DpT == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating gv.DpT\n",
+                        routineName);
+    }
+    
+    //E
+    //E
+
+    //B iv tables
+    //B inside ArraysforChiQuad
+    iv.chiQuadSteps=cmd->chiQuadSteps;
+    iv.zT_chiint = calloc((size_t)iv.chiQuadSteps, sizeof(*iv.zT_chiint));
+    if (iv.zT_chiint == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating iv.zT_chiint\n",
+                        routineName);
+    }
+    iv.chiT_chiint = calloc((size_t)iv.chiQuadSteps, sizeof(*iv.chiT_chiint));
+    if (iv.chiT_chiint == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating iv.chiT_chiint\n",
+                        routineName);
+    }
+    iv.DpT_chiint = calloc((size_t)iv.chiQuadSteps, sizeof(*iv.DpT_chiint));
+    if (iv.DpT_chiint == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating iv.DpT_chiint\n",
+                        routineName);
+    }
+    iv.rsigma_chiint = calloc((size_t)iv.chiQuadSteps, sizeof(*iv.rsigma_chiint));
+    if (iv.rsigma_chiint == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating iv.rsigma_chiint\n",
+                        routineName);
+    }
+    iv.neff_chiint = calloc((size_t)iv.chiQuadSteps, sizeof(*iv.neff_chiint));
+    if (iv.neff_chiint == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating iv.neff_chiint\n",
+                        routineName);
+    }
+    iv.q_chiint = calloc((size_t)iv.chiQuadSteps, sizeof(*iv.q_chiint));
+    if (iv.q_chiint == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating iv.q_chiint\n",
+                        routineName);
+    }
+    //E
+
+    //B allocate_iv
+    iv.Nell   = cmd->Nell;
+    iv.ellmax = cmd->ellmax;
+    iv.ellmin = cmd->ellmin;
+    iv.ellT = calloc((size_t)iv.Nell, sizeof(*iv.ellT));
+    if (iv.ellT == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating iv.ellT\n",
+                        routineName);
+    }
+
+    for(int i=0; i<iv.Nell ; i++){
+        iv.ellT[i]= exp(log(iv.ellmin)
+        + i*log(iv.ellmax/iv.ellmin)/(iv.Nell-1.0));
+    }
+
+    //B
+    iv.BmVectors = calloc(NumMoments, sizeof(*iv.BmVectors));
+    iv.BmVectorsp = calloc(NumMoments, sizeof(*iv.BmVectorsp));
+    if (iv.BmVectors == NULL || iv.BmVectorsp == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating Bm vector row pointers\n",
+                        routineName);
+    }
+
+    for (int m = 0; m < NumMomentsInt; m++) {
+        iv.BmVectors[m] = calloc((size_t)iv.Nell * (size_t)iv.Nell,
+                                 sizeof(**iv.BmVectors));
+        iv.BmVectorsp[m] = calloc((size_t)iv.Nell * (size_t)iv.Nell,
+                                  sizeof(**iv.BmVectorsp));
+        if (iv.BmVectors[m] == NULL || iv.BmVectorsp[m] == NULL) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup,
+                            "%s: not enough memory allocating Bm vector row %d\n",
+                            routineName, m);
+        }
+        bm_rows++;
+    }
+    //E
+    
+    //B zv tables
+    
+    zv.r1 = calloc((size_t)iv.Nell, sizeof(*zv.r1));
+    if (zv.r1 == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating zv.r1\n",
+                        routineName);
+    }
+
+    zv.r2 = calloc((size_t)iv.Nell, sizeof(*zv.r2));
+    if (zv.r2 == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating zv.r2\n",
+                        routineName);
+    }
+
+    zv.result = calloc((size_t)iv.Nell, sizeof(*zv.result));
+    if (zv.result == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating zv.result row pointers\n",
+                        routineName);
+    }
+
+    for (int i = 0; i < iv.Nell; i++) {
+        zv.result[i] = calloc((size_t)iv.Nell, sizeof(**zv.result));
+        if (zv.result[i] == NULL) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup,
+                            "%s: not enough memory allocating zv.result row %d\n",
+                            routineName, i);
+        }
+        zv_rows++;
+    }
+    
+    //E
+
+    gd->tables_allocated = TRUE;
     gd->bytes_tot += bytes_tot_local;
-    verb_print_normal_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                           "\n%s: Allocated %g MByte for histograms storage.\n",
-                           routineName, bytes_tot_local*INMB);
-
-//    gd->histograms_allocated = TRUE;
-
     return SUCCESS;
+
+    cleanup:
+        for (int i = 0; i < zv_rows; i++)
+            free(zv.result[i]);
+        free(zv.result);
+        free(zv.r2);
+        free(zv.r1);
+
+        for (int m = 0; m < bm_rows; m++) {
+            free(iv.BmVectorsp[m]);
+            free(iv.BmVectors[m]);
+        }
+        free(iv.BmVectorsp);
+        free(iv.BmVectors);
+
+        free(iv.ellT);
+        free(iv.q_chiint);
+        free(iv.neff_chiint);
+        free(iv.rsigma_chiint);
+        free(iv.DpT_chiint);
+        free(iv.chiT_chiint);
+        free(iv.zT_chiint);
+
+        free(gv.DpT);
+        free(gv.chiOfzT);
+        free(gv.zT);
+        free(gv.gLT);
+        free(gv.chiforgLT);
+
+        gd->tables_allocated = FALSE;
+        return status;
 }
 
-/*
-Memory-allocation startup routine:
-
-*/
+#ifdef OPENMPCODE
 int SetNumberThreads(struct  cmdline_data *cmd)
 {
+    if (cmd == NULL || cmd->numthreads < 1) return FAILURE;
+    
     omp_set_num_threads(cmd->numthreads);
 
     return SUCCESS;
 }
-//#endif
-
-
-//B Special routines to scan command line
-
-/*
-Special-parameter scanning routine:
-
-*/
-
-local int startrun_getParamsSpecial(struct  cmdline_data* cmd,
-                                    struct  global_data* gd)
+#else // dummy for no OPENMCODE
+int SetNumberThreads(struct  cmdline_data *cmd)
 {
-    string routineName = "startrun_getParamsSpecial";
-    char *pch;
-    int nitems, ndummy=1;
-    char inputnametmp[MAXLENGTHOFSTRSCMD];
-    int i;
-    size_t slen;
-
-    debug_tracking_s("001", routineName);
-
-
-//B socket:
-#ifdef ADDONS
-#include "startrun_include_12.h"
+    return SUCCESS;
+}
 #endif
-//E
-    debug_tracking_s("002... final", routineName);
-
-    return SUCCESS;
-}
-/*
-Integer-option scanning routine:
-*/
-local int scaniOption(struct  cmdline_data* cmd, struct  global_data* gd,
-                      string optionstr, int *option, int *noption,
-                      int nfiles, int flag, string message)
-{
-    string routineName = "scaniOption";
-    char *pch;
-    char *poptionstr[30],  optiontmp[100];
-    int i;
-
-    verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                           "\n%s: Processing '%s' option:\n",
-                        routineName, message);
-
-    verb_log_print(cmd->verbose_log, gd->outlog,
-                           "%s: Splitting string \"%s=%s\" in tokens:\n",
-                        routineName, message, optionstr);
-
-    if (!strnull(optionstr)) {
-        strcpy(optiontmp,optionstr);
-        verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                               "%s: Splitting string \"%s\" in tokens:\n",
-                            routineName, optiontmp);
-        *noption=0;
-        pch = strtok(optiontmp," ,");
-        while (pch != NULL) {
-            poptionstr[*noption] = (string) malloc(10);
-            strcpy(poptionstr[*noption],pch);
-            ++(*noption);
-            verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                                  "%s: %s\n",
-                                routineName, poptionstr[*noption-1]);
-            pch = strtok (NULL, " ,");
-        }
-
-        verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                               "%s: num. of tokens in option %s =%d\n",
-                            routineName, optionstr, *noption);
-
-        if (flag == 0)
-            if (*noption != nfiles)
-                error("\nscanOption: noption = %d %s",
-                      *noption,
-                      "must be equal to number of infiles\n\n");
-        if (*noption > MAXITEMS)
-            error("\nscaniOption: noption = %d %s",
-                  *noption,
-                  "must be less than the maximum num. of lines\n\n");
-
-        for (i=0; i<*noption; i++) {
-            option[i]=atoi(poptionstr[i]);
-            verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                                   "%s: option: %d\n",
-                                routineName, option[i]);
-        }
-        verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                               "%s: noptions, nfiles: %d %d\n\n",
-                            routineName, *noption,nfiles);
-        if (flag == 1) {
-            if (*noption > nfiles)
-                error("\nscanOption: noption = %d %s",
-                      *noption,
-                      "must be less or equal to number of files\n\n");
-            else {
-                for (i=*noption; i<nfiles; i++) {
-                    option[i]=option[i-1]+1;
-                    verb_print_debug_info(cmd->verbose,
-                                          cmd->verbose_log, gd->outlog,
-                                          "%s: option: %d\n",
-                                          routineName, option[i]);
-                }
-            }
-        }
-    }
-
-    return SUCCESS;
-}
-/*
-Real-option scanning routine:
-*/
-local int scanrOption(struct  cmdline_data* cmd, struct  global_data* gd,
-                      string optionstr, double *option, int *noption,
-    int nfiles, int flag, string message)
-{
-    string routineName = "scanrOption";
-
-    char *pch;
-    char *poptionstr[30],  optiontmp[100];
-    int i;
-
-    verb_log_print(cmd->verbose_log, gd->outlog,
-                           "\n%s: Processing '%s' option:\n",
-                        routineName, message);
-
-    verb_log_print(cmd->verbose_log, gd->outlog,
-                           "%s: Splitting string \"%s\" in tokens:\n",
-                        routineName, message);
-
-    if (!strnull(optionstr)) {
-        strcpy(optiontmp,optionstr);
-        verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                               "\n%s: Splitting string \"%s\" in tokens:\n",
-                            routineName, optiontmp);
-        *noption=0;
-        pch = strtok(optiontmp," ,");
-        while (pch != NULL) {
-            poptionstr[*noption] = (string) malloc(MAXLENGTHOFREAL);
-            strcpy(poptionstr[*noption],pch);
-            ++(*noption);
-            verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                                  "%s: %s\n",
-                                routineName, poptionstr[*noption-1]);
-            pch = strtok (NULL, " ,");
-        }
-        verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                              "%s: num. of tokens in option %s =%d\n",
-                            routineName, optionstr, *noption);
-
-        if (flag == 0)
-            if (*noption != nfiles)
-            error("\nscanOption: noption = %d must be equal to number of files\n\n",
-                      *noption);
-        if (*noption > MAXITEMS)
-    error("\nscanOption: noption = %d must be less than the maximum num. of lines\n\n",
-                  *noption);
-
-        for (i=0; i<*noption; i++) {
-            option[i]=atof(poptionstr[i]);
-            if (cmd->verbose_log>=3)
-            verb_log_print(cmd->verbose_log, gd->outlog, "option: %g\n",option[i]);
-        }
-
-        verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                              "\n%s: noptions, nfiles: %d %d\n",
-                            routineName, *noption, nfiles);
-        if (flag == 1) {
-            if (*noption > nfiles)
-    error("\nscanOption: noption = %d must be less or equal to number of files\n\n",
-                  *noption);
-            else {
-                for (i=*noption; i<nfiles; i++) {
-                    option[i]=option[i-1]+1;
-                    if (cmd->verbose_log>=3)
-                    verb_log_print(cmd->verbose_log, gd->outlog, 
-                                   "option: %g\n",option[i]);
-                }
-            }
-        }
-
-        for (i=0; i<*noption; i++) {
-            free(poptionstr[*noption]);
-        }
-
-    } else {
-        for (i=0; i<nfiles; i++) {
-            option[i]=0.0;                          // Be aware of this values
-            verb_print_debug_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                                   "%s: option: %d\n",
-                                routineName, option[i]);
-        }
-    }
-
-    return SUCCESS;
-}
-
-/*
-Real-option scanning routine:
-*/
 
 local int print_make_info(struct cmdline_data* cmd,
                           struct  global_data* gd)
@@ -1106,24 +1391,12 @@ local int print_make_info(struct cmdline_data* cmd,
     verb_print(cmd->verbose, "using OpenMP\n");
 #endif
 
-#ifdef SINGLEP
-    verb_print(cmd->verbose, "SINGLEP\n");
-#endif
-
-#ifdef LONGINT
-    verb_print(cmd->verbose, "LONGINT\n");
-#endif
-
 #ifdef DEBUG
     verb_print(cmd->verbose, "DEBUG\n");
 #endif
 
 #ifdef USEGSL
-#ifdef GSLINTERNAL
-    verb_print(cmd->verbose, "using internal GSL\n");
-#else
     verb_print(cmd->verbose, "using GSL\n");
-#endif
 #endif
 
 #ifdef ADDONS
@@ -1141,145 +1414,63 @@ local int print_make_info(struct cmdline_data* cmd,
     return SUCCESS;
 }
 
-// I/O directories:
-
-/*
-Log-directory setup routine:
-*/
-local void setFilesDirs_log(struct cmdline_data* cmd,
+//B I/O directories:
+local int setFilesDirs_log(struct cmdline_data* cmd,
                              struct  global_data* gd)
 {
     string routineName = "setFilesDirs_log";
-    char buf[BUFFERSIZE];
 
-    debug_tracking_s("001", routineName);
-    if (cmd->verbose_log>0) {           // gd->logfilePath is defined
-        debug_tracking_s("002", cmd->rootDir);
-        sprintf(gd->tmpDir,"%s/%s",cmd->rootDir,"tmp");
-        double cpustart = CPUTIME;
-        debug_tracking_s("003", gd->tmpDir);
-        sprintf(buf,"if [ ! -d %s ]; then mkdir %s; fi",
-                gd->tmpDir,gd->tmpDir);
-        system(buf);
-        debug_tracking("004");
-        gd->cputotalinout += CPUTIME - cpustart;
-        sprintf(gd->logfilePath,"%s/wlcf.log",
-                gd->tmpDir);
-//        gd->tmpDir,cmd->suffixOutFiles);
+    int nwrite;
+
+    // gd->logfilePath is defined
+    if (cmd->verbose_log>0 && gd->rootDirFlag==TRUE) {
+        nwrite = snprintf(gd->tmpDir, sizeof(gd->tmpDir),
+                          "%s/%s", cmd->rootDir, "tmp");
+        if (nwrite < 0 || (size_t)nwrite >= sizeof(gd->tmpDir)) {
+            WLCOV_FAIL(cmd, "\n%s: tmpDir too long\n\n",routineName);
+        }
+        
+        if (mkdir_p(gd->tmpDir, 0755) == 0) {
+        } else {
+            WLCOV_FAIL(cmd, "\n%s: Error creating directory: %s\n\n",
+                       routineName, gd->tmpDir);
+        }
+        
+        nwrite = snprintf(gd->logfilePath, sizeof(gd->logfilePath),
+                          "%s/wlcf.log", gd->tmpDir);
+        if (nwrite < 0 || (size_t)nwrite >= sizeof(gd->logfilePath)) {
+            WLCOV_FAIL(cmd, "\n%s: logfilePath too long\n",routineName);
+        }
+
     }
-    debug_tracking("005... final");
+
+    return SUCCESS;
 }
-/*
-Output-directory setup routine:
-*/
-local void setFilesDirs(struct cmdline_data* cmd, struct  global_data* gd)
+
+local int setFilesDirs(struct cmdline_data* cmd, struct global_data* gd)
 {
     string routineName = "setFilesDirs";
-    char buf[BUFFERSIZE];
 
-    char outputDir[MAXLENGTHOFFILES];
-
-    double cpustart = CPUTIME;
-
-    int ndefault = 0;
-    int *ipos;
-    char *dp1, *dp2;
-    int lenDir = strlen(cmd->rootDir);
-    int i;
-
-    debug_tracking_s("001", routineName);
-    debug_tracking_s("002: init", cmd->rootDir);
-
-    if (gd->rootDirFlag==TRUE) {
-        
-        int nslashs = MAXNSLASHS;
-        ipos = (int*) malloc((nslashs)*sizeof(int));
-//        dp1 = (char*) malloc((lenDir)*sizeof(char));
-        dp1 = (char*) malloc((MAXLENGTHOFSTRSCMD)*sizeof(char));
-
-        for (i=0; i< lenDir; i++) {
-            if(cmd->rootDir[i] == '/') {
-                ipos[ndefault] = i+1;
-                ndefault++;
-            }
+    if (gd->rootDirFlag == TRUE) {
+        if (strlen(cmd->rootDir) >= MAXLENGTHOFFILES) {
+            WLCOV_FAIL(cmd, "%s: rootDir too long\n", routineName);
         }
-        if (ndefault>nslashs)
-            error("%s: more '/' than %d in 'rootDir=%s'. Use only %d or none\n",
-                  routineName, nslashs, cmd->rootDir, nslashs);
-        
-        if (ndefault == 0) {
-            sprintf(outputDir,cmd->rootDir);
-            sprintf(buf,"if [ ! -d %s ]; then mkdir %s; fi",
-                    outputDir,outputDir);
-            if (cmd->verbose >= 3)
-                verb_print_q(3, cmd->verbose_log,"\nsystem: %s\n",buf);
-            system(buf);
-        } else {
-            for (i=0; i<ndefault; i++) {
-                debug_tracking("003");
-//                strncpy(dp1, cmd->rootDir, ipos[i]-1);
-                snprintf(dp1, ipos[i]+1, "%s", cmd->rootDir);
-                sprintf(buf,"if [ ! -d %s ]; then mkdir -p %s; fi",dp1,dp1);
-                verb_print_q(3,cmd->verbose_log,"\nsystem: %d: %s\n",i,buf);
-                system(buf);
-                debug_tracking("004");
-            }
-//            strncpy(dp1, cmd->rootDir, lenDir);
-            snprintf(dp1, lenDir+1, "%s", cmd->rootDir);
-            sprintf(buf,"if [ ! -d %s ]; then mkdir -p %s; fi",dp1,dp1);
-            verb_print_q(3,cmd->verbose_log,"\nsystem: %d: %s\n",i,buf);
-            system(buf);
-        }
-        gd->cputotalinout += CPUTIME - cpustart;
-        
-        debug_tracking_s("005", cmd->rootDir);
-/*
-        sprintf(gd->fpfnameOutputFileName,"%s/%s%s%s",
-                cmd->rootDir,cmd->outfile,cmd->suffixOutFiles,EXTFILES);
-        sprintf(gd->fpfnamehistNNFileName,"%s/%s%s%s",
-                cmd->rootDir,cmd->histNNFileName,cmd->suffixOutFiles,EXTFILES);
-        sprintf(gd->fpfnamehistCFFileName,"%s/%s%s%s",
-                cmd->rootDir,"histCF",cmd->suffixOutFiles,EXTFILES);
-        sprintf(gd->fpfnamehistrBinsFileName,"%s/%s%s%s",
-                cmd->rootDir,"rbins",cmd->suffixOutFiles,EXTFILES);
-        sprintf(gd->fpfnamehistXi2pcfFileName,"%s/%s",
-                cmd->rootDir,cmd->histXi2pcfFileName);
-        sprintf(gd->fpfnamehistZetaGFileName,"%s/%s%s%s",
-                cmd->rootDir,cmd->histZetaFileName,"G",cmd->suffixOutFiles);
-        sprintf(gd->fpfnamehistZetaGmFileName,"%s/%s%s%s",
-                cmd->rootDir,cmd->histZetaFileName,"G",cmd->suffixOutFiles);
-        sprintf(gd->fpfnamehistZetaMFileName,"%s/%s%s%s",
-                cmd->rootDir,cmd->histZetaFileName,"M",cmd->suffixOutFiles);
-        sprintf(gd->fpfnamemhistZetaMFileName,"%s/%s%s%s%s",
-                cmd->rootDir,"m",cmd->histZetaFileName,"M",cmd->suffixOutFiles);
-        sprintf(gd->fpfnameCPUFileName,"%s/cputime%s%s",
-                cmd->rootDir,cmd->suffixOutFiles,EXTFILES);
-*/
-        free(ipos);
-        
 
-        //B socket:
-#ifdef ADDONS
-#include "wlcfio_include_09b.h"
-#endif
-        //E
-        free(dp1);
-    } // ! rootDirFlag
-    debug_tracking_s("006: final", cmd->rootDir);
+        if (mkdir_p(cmd->rootDir, 0755) != 0) {
+            WLCOV_FAIL(cmd, "%s: Error creating directory: %s",
+                       routineName, cmd->rootDir);
+        }
+    }
+
+    return SUCCESS;
 }
-/*
-Output initialization routine:
-*/
+
 int StartOutput(struct cmdline_data *cmd, struct  global_data* gd)
 {
-    //B clear some char arrays
-//    gd->logfilePath[0] = '\0';
-//    gd->fpfnameOutputFileName[0] = '\0';
-//    gd->fnameData_kd[0] = '\0';
-//    gd->fnameOut_kd[0] = '\0';
-    //E
-
-//    outfilefmt_string_to_int(cmd->outfilefmt, &outfilefmt_int);
+    if (cmd == NULL || gd == NULL)
+        return FAILURE;
+    
+    if (cmd->options == NULL) cmd->options = "";
 
     if (cmd->verbose>=VERBOSEMININFO)
         if (! strnull(cmd->options))
@@ -1287,3 +1478,4 @@ int StartOutput(struct cmdline_data *cmd, struct  global_data* gd)
 
     return SUCCESS;
 }
+//E

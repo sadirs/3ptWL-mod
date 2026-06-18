@@ -1,52 +1,73 @@
+3PCF Model Reference
+====================
 
-3-point correlation functions
-=============================
+3ptWL-mod models the three-point correlation function of projected scalar
+fields on the sphere.  Its primary application is weak-lensing convergence,
+but the harmonic construction applies more broadly to spin-zero projected
+fields.
 
-**3ptWL-mod** computes **three-point correlation functions (3PCF)** for scalar fields, such as the weak lensing convergence :math:`\kappa`. These higher-order statistics provide access to non-Gaussian information in the large-scale structure of the Universe.
+Harmonic Representation
+-----------------------
 
-In particular, the code evaluates the correlation:
-
-.. math::
-    
-    \langle \kappa(\hat{n}_1),\kappa(\hat{n}_2),\kappa(\hat{n}_3) \rangle
-
-using a plane-wave expansion and a harmonic decomposition.
-
-**Harmonic base**
-
-The angular dependence of the 3PCF is expressed in a **harmonic basis**, where the signal is decomposed into multipoles. This allows for an efficient and structured representation of the correlation function.
-
-The expansion is performed in terms of angular modes labeled by an index :math:`m`, leading to a set of coefficients:
+For angular separations :math:`\theta_1` and :math:`\theta_2`, the code
+represents the azimuthal dependence through multipoles
 
 .. math::
-    
-    \zeta_m(\theta_1, \theta_2)
 
-where:
+   \zeta_m(\theta_1,\theta_2), \qquad m=0,\ldots,m_{\max}.
 
-* :math:`\theta_1`, :math:`\theta_2` are angular separations
-* :math:`m = 0, 1, \dots, m_{\mathrm{max}}` is the multipole index
+The decomposition turns the angular structure into a sequence of two-dimensional
+matrices.  The numerical pipeline computes matter-bispectrum quantities,
+projects them through the lensing kernel under the adopted approximations, and
+transforms the projected multipoles into configuration space.
 
+Model Branches
+--------------
 
-**Output**
+``tree_level=1``
+   Standard perturbation-theory branch.
 
-The results of the harmonic decomposition are stored in files under
-``path_Bells``. File names use the configured ``prefix``:
+``tree_level=2``
+   Power-spectrum-squared approximation.
 
-::
+``tree_level=3``
+   Effective-field-theory inspired branch.
 
-    <prefix>zetam0.txt
-    <prefix>zetam1.txt
-    ...
-    <prefix>zetamN.txt
+``tree_level=4``
+   Takahashi/Halo-model inspired branch used by the main notebook examples.
 
-along with the corresponding angular grid:
+The branches are different physical approximations, not successive numerical
+accuracy levels.  Compare them only with consistent cosmology, inputs, grids,
+and source kernels.
 
-::
-    
-    <prefix>theta_array.txt
+Projection Inputs
+-----------------
 
+The calculation consumes a linear matter power spectrum through ``fnamePS``.
+``Wg=0`` uses a source plane at ``zbin``; ``Wg=1`` reads the tabulated kernel
+selected by ``fWgchi``.  See :doc:`ps_files` for formats and units.
 
-These outputs can be used to reconstruct or visualize the full three-point correlation function.
+Numerical Grids
+---------------
 
-See :doc:`io_formats` for the related ``Bmells_*``, ``Bnk_*``, and grid files.
+``Nell``, ``ellmin``, and ``ellmax`` define the multipole grid.
+``chiQuadSteps`` and ``GLpoints`` control radial and angular integrations.
+``mMax`` selects the highest output moment.  Convergence must be established
+for the angular range and model branch used in the analysis.
+
+Outputs
+-------
+
+The angular grid is written to ``<rootDir>/<prefix>theta_array.txt`` and each
+moment to ``<rootDir>/<prefix>zetam<m>.txt``.  Bispectrum, background, and grid
+products are documented in :doc:`io_formats`.
+
+Scientific Reference
+--------------------
+
+The modeling framework is described in `Modeling the 3-point correlation
+function of projected scalar fields on the sphere`_.  Record the code commit,
+inputs, numerical settings, and model branch whenever publishing derived
+results.
+
+.. _Modeling the 3-point correlation function of projected scalar fields on the sphere: https://arxiv.org/abs/2408.16847

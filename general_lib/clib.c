@@ -1,19 +1,7 @@
-//==========================================================================
+//=============================================================================
 //        1          2          3          4        ^ 5          6          7
 
-/*
-============================================================================
-NAME: stdinc.c                               [wlcf]
-Written by: Mario A. Rodriguez-Meza
-Starting date: February 2026
-Purpose: Standard utility routines for memory allocation, timing,
-         verbosity control, streams, and common helpers
-Language: C
-*/
-//==========================================================================
-
-//#include "globaldefs.h"
-#include "global.h"
+#include "globaldefs.h"
 
 #include <math.h>
 #include <time.h>
@@ -33,7 +21,7 @@ Language: C
 #include <sys/timeb.h>
 #include <string.h>	
 
-#include <sys/stat.h>
+#include <sys/stat.h>                               // it has also mkdir()
 #include <stdarg.h>
 
 #include <string.h>
@@ -42,10 +30,6 @@ Language: C
 
 
 //B Memory section
-
-/*
-Zero-initialized byte-array allocation routine:
-*/
 
 void *allocate_array(int nb)
 {
@@ -57,9 +41,7 @@ void *allocate_array(int nb)
               getargv0(), nb);
     return (mem);
 }
-/*
-Zero-initialized memory allocation routine:
-*/
+
 void *allocate(long int nb)
 {
     void *mem;
@@ -71,9 +53,7 @@ void *allocate(long int nb)
     return (mem);
 }
 
-/*
-Integer-vector free routine:
-*/
+
 void FreeVecINormal(int *v)
 {
 	free(v);
@@ -82,9 +62,7 @@ void FreeVecINormal(int *v)
 //B Following NR
 #define NOFFSET_END 1
 #define FREE_ARG char*
-/*
-Integer-vector allocation routine:
-*/
+
 int *ivector(long nl, long nh)
 {
     int *v;
@@ -93,16 +71,12 @@ int *ivector(long nl, long nh)
     if (!v) error("allocation failure in ivector()");
     return v-nl+NOFFSET_END;
 }
-/*
-Integer-vector free routine:
-*/
+
 void free_ivector(int *v, long nl, long nh)
 {
     free((FREE_ARG) (v+nl-NOFFSET_END));
 }
-/*
-Double-vector allocation routine:
-*/
+
 double *dvector(long nl, long nh)
 {
     double *v;
@@ -112,9 +86,7 @@ double *dvector(long nl, long nh)
 
     return v-nl+NOFFSET_END;
 }
-/*
-Double-matrix allocation routine:
-*/
+
 double **dmatrix(long nrl, long nrh, long ncl, long nch)
 {
     long i, nrow=nrh-nrl+1,
@@ -136,23 +108,7 @@ double **dmatrix(long nrl, long nrh, long ncl, long nch)
     return m;
 }
 
-/*
-3D double-matrix allocation routine:
 
-This routine allocates a 3D double tensor with Numerical Recipes-style
-indexing.
-
-Arguments:
-    'nrl': Input: lower first-index bound
-    'nrh': Input: upper first-index bound
-    'ncl': Input: lower second-index bound
-    'nch': Input: upper second-index bound
-    'ndl': Input: lower third-index bound
-    'ndh': Input: upper third-index bound
-
-Return:
-    pointer to allocated 3D double tensor
-*/
 double ***dmatrix3D(long nrl, long nrh, long ncl, long nch, long ndl, long ndh)
 /* allocate a double 3tensor with range t[nrl..nrh][ncl..nch][ndl..ndh] */
 {
@@ -187,9 +143,7 @@ double ***dmatrix3D(long nrl, long nrh, long ncl, long nch, long ndl, long ndh)
     /* return pointer to array of pointers to rows */
     return t;
 }
-/*
-3D double-matrix free routine:
-*/
+
 void free_dmatrix3D(double ***t, long nrl, long nrh, long ncl, long nch,
     long ndl, long ndh)
 /* free a double f3tensor allocated by f3tensor() */
@@ -199,10 +153,7 @@ void free_dmatrix3D(double ***t, long nrl, long nrh, long ncl, long nch,
     free((FREE_ARG) (t+nrl-NOFFSET_END));
 }
 
-/*
-Double-vector free routine:
 
-*/
 void free_dvector(double *v, long nl, long nh)
 {
     if (nl>0)
@@ -210,9 +161,7 @@ void free_dvector(double *v, long nl, long nh)
     else
         free((FREE_ARG) (v));
 }
-/*
-Double-matrix free routine:
-*/
+
 void free_dmatrix(double **m, long nrl, long nrh, long ncl, long nch)
 {
     free((FREE_ARG) (m[nrl]+ncl-NOFFSET_END));
@@ -223,9 +172,7 @@ void free_dmatrix(double **m, long nrl, long nrh, long ncl, long nch)
 #undef NOFFSET_END
 #undef FREE_ARG
 //E
-/*
-Out-of-memory error routine:
-*/
+
 void error_mem_out_kd(void)
 {
 // Memory shortage handler
@@ -238,9 +185,7 @@ void error_mem_out_kd(void)
 
 
 //B Time section
-/*
-CPU-time routine in minutes:
-*/
+
 double cputime(void)
 {
     time_t ltime;
@@ -248,9 +193,6 @@ double cputime(void)
     return(((double)ltime)/((double) 60.0));
 }
 
-/*
-CPU-time routine in seconds:
-*/
 double cpu_time(void)
 {
     double value;
@@ -263,10 +205,7 @@ double cpu_time(void)
 #define GETREALTIME(time) \
     {REALTIMECLIB; \
     (time) = current_time.tv_sec;}
-/*
-Real-time routine:
 
-*/
 long rcpu_time(void)
 {
     struct timeval current_time;
@@ -277,17 +216,13 @@ long rcpu_time(void)
 
 #undef REALTIMECLIB
 #undef GETREALTIME
-/*
-Clock-seconds routine:
-*/
+
 double second(void)
 {
   return ((double)((unsigned int)clock()))/CLOCKS_PER_SEC;
 
 }
-/*
-Time-difference routine:
-*/
+
 double timediff(double t0, double t1)
 {
   double dt;
@@ -315,9 +250,7 @@ static double relbeg_kd,relend_kd,absbeg_kd,absend_kd;
 #include <time.h>
 static time_t relbeg_kd,relend_kd,absbeg_kd,absend_kd;
 #endif //OPENMPCODE
-/*
-General timing routine:
-*/
+
 void timer_kd(int i)
 {
 // Timing routine
@@ -375,9 +308,7 @@ void timer_kd(int i)
 
 //E Time section
 
-/*
-Error-printing routine:
-*/
+
 void error(string fmt, ...)
 {
     va_list ap;
@@ -388,12 +319,7 @@ void error(string fmt, ...)
     va_end(ap);
     exit(1);
 }
-/*
-Exact-verbosity printing routine:
 
-This routine prints a formatted message only when verbose equals iq.
-
-*/
 void verb_print_q(int iq, int verbose, string fmt, ...)
 {
     va_list ap;
@@ -405,12 +331,7 @@ void verb_print_q(int iq, int verbose, string fmt, ...)
         va_end(ap);
     }
 }
-/*
-Basic verbosity printing routine:
 
-This routine prints a formatted message when verbose > 0.
-
-*/
 // DEBUG WARNING!!
 //  check lines: 91--106 routine InputData in cballsio.c
 void verb_print(int verbose, string fmt, ...)
@@ -424,9 +345,7 @@ void verb_print(int verbose, string fmt, ...)
         va_end(ap);
     }
 }
-/*
-Warning verbosity printing routine:
-*/
+
 void verb_print_warning(int verbose, string fmt, ...)
 {
     va_list ap;
@@ -438,10 +357,7 @@ void verb_print_warning(int verbose, string fmt, ...)
         va_end(ap);
     }
 }
-/*
-Debug verbosity printing routine:
 
-*/
 void verb_print_debug(int verbose, string fmt, ...)
 {
     va_list ap;
@@ -453,23 +369,40 @@ void verb_print_debug(int verbose, string fmt, ...)
         va_end(ap);
     }
 }
-/*
-Log-stream printing routine:
-*/
+
 void verb_log_print(int verbose, stream sout,  string fmt, ...)
 {
     va_list ap;
 
-    if (verbose > 0) {
+    if (verbose > 0 && sout != NULL) {
         va_start(ap, fmt);
         vfprintf(sout, fmt, ap);
         fflush(sout);
         va_end(ap);
     }
 }
-/*
-Minimum-info printing routine:
-*/
+
+void verb_print_no_info(int verbose, int verbose_log, stream sout,
+                  string fmt, ...)
+{
+    va_list ap;
+
+    if (verbose >= VERBOSENOINFO) {
+        va_start(ap, fmt);
+        vfprintf(stdout, fmt, ap);
+        fflush(stdout);
+        va_end(ap);
+    }
+
+    if (verbose_log >= VERBOSEMININFO && sout != NULL) {
+        va_start(ap, fmt);
+        vfprintf(sout, fmt, ap);
+        fflush(sout);
+        va_end(ap);
+    }
+
+}
+
 void verb_print_min_info(int verbose, int verbose_log, stream sout,
                   string fmt, ...)
 {
@@ -481,7 +414,7 @@ void verb_print_min_info(int verbose, int verbose_log, stream sout,
         fflush(stdout);
         va_end(ap);
     }
-    if (verbose_log >= VERBOSEMININFO) {
+    if (verbose_log >= VERBOSEMININFO && sout != NULL) {
         va_start(ap, fmt);
         vfprintf(sout, fmt, ap);
         fflush(sout);
@@ -489,9 +422,7 @@ void verb_print_min_info(int verbose, int verbose_log, stream sout,
     }
 
 }
-/*
-Normal-info printing routine:
-*/
+
 void verb_print_normal_info(int verbose, int verbose_log, stream sout,
                             string fmt, ...)
 {
@@ -503,7 +434,7 @@ void verb_print_normal_info(int verbose, int verbose_log, stream sout,
         fflush(stdout);
         va_end(ap);
     }
-    if (verbose_log >= VERBOSENORMALINFO) {
+    if (verbose_log >= VERBOSENORMALINFO && sout != NULL) {
         va_start(ap, fmt);
         vfprintf(sout, fmt, ap);
         fflush(sout);
@@ -511,22 +442,7 @@ void verb_print_normal_info(int verbose, int verbose_log, stream sout,
     }
 
 }
-/*
-Debug-info printing routine:
 
-This routine prints formatted messages to stdout and/or a log stream
-when the debug-info verbosity threshold is reached.
-
-Arguments:
-    'verbose'    : Input: stdout verbosity level
-    'verbose_log': Input: log verbosity level
-    'sout'       : Input: log output stream
-    'fmt'        : Input: format string
-    '...': Input: variable argument list
-
-Return:
-    void
-*/
 void verb_print_debug_info(int verbose, int verbose_log, stream sout,
                   string fmt, ...)
 {
@@ -538,7 +454,7 @@ void verb_print_debug_info(int verbose, int verbose_log, stream sout,
         fflush(stdout);
         va_end(ap);
     }
-    if (verbose_log >= VERBOSEDEBUGINFO) {
+    if (verbose_log >= VERBOSEDEBUGINFO && sout != NULL) {
         va_start(ap, fmt);
         vfprintf(sout, fmt, ap);
         fflush(sout);
@@ -546,9 +462,7 @@ void verb_print_debug_info(int verbose, int verbose_log, stream sout,
     }
 
 }
-/*
-Endrun routine:
-*/
+
 void endrun(int ierr)
 {
   if(ierr)
@@ -560,9 +474,7 @@ void endrun(int ierr)
   exit(0);
 }
 
-/*
-Error-printing helper routine:
-*/
+
 void eprintf(string fmt, ...)
 {
     va_list ap;
@@ -572,9 +484,7 @@ void eprintf(string fmt, ...)
     fflush(stderr);
     va_end(ap);
 }
-/*
-Option-scan routine:
-*/
+
 bool scanopt(string opt, string key)
 {
     char *op, *kp;
@@ -594,9 +504,7 @@ bool scanopt(string opt, string key)
     return (FALSE);
 }
 
-/*
-Stream-opening routine:
-*/
+
 stream stropen(string name, string mode)
 {
     bool inflag;
@@ -626,12 +534,7 @@ stream stropen(string name, string mode)
 }
 
 
-
 //B From G
-
-/*
-Double maximum routine:
-*/
 
 double dmax(double x,double y)
 {
@@ -640,9 +543,7 @@ double dmax(double x,double y)
   else
     return y;
 }
-/*
-Double minimum routine:
-*/
+
 double dmin(double x,double y)
 {
   if(x<y)
@@ -650,9 +551,7 @@ double dmin(double x,double y)
   else
     return y;
 }
-/*
-Integer maximum routine:
-*/
+
 int imax(int x,int y)
 {
   if(x>y)
@@ -660,9 +559,7 @@ int imax(int x,int y)
   else
     return y;
 }
-/*
-Integer minimum routine:
-*/
+
 int imin(int x,int y)
 {
   if(x<y)
@@ -676,36 +573,35 @@ int imin(int x,int y)
 
 //B common section
 #ifndef CLASSLIB
-/*
-Protected sprintf routine:
-*/
-void class_protect_sprintf(char* dest, char* tpl,...) {
-  va_list args;
-  va_start(args,tpl);
-  vsnprintf(dest, 2048,tpl,args);
-  va_end(args);
-}
-/*
-Protected fprintf routine:
 
-*/
-void class_protect_fprintf(FILE* stream, char* tpl,...) {
+void class_protect_sprintf(char *dest, size_t dest_size, const char *tpl, ...) {
+  va_list args;
+
+  if (dest == NULL || dest_size == 0)
+    return;
+
+  va_start(args, tpl);
+  vsnprintf(dest, dest_size, tpl, args);
+  va_end(args);
+
+  dest[dest_size - 1] = '\0';
+}
+
+void class_protect_fprintf(FILE *stream, const char *tpl, ...) {
   va_list args;
   char dest[6000];
-  va_start(args,tpl);
-  vsnprintf(dest, 2048,tpl,args);
+
+  va_start(args, tpl);
+  vsnprintf(dest, sizeof(dest), tpl, args);
   va_end(args);
-  fprintf(stream,"%s",dest);
+
+  fprintf(stream, "%s", dest);
 }
-/*
-Protected memcpy routine:
-*/
+
 void* class_protect_memcpy(void* dest, void* from, size_t sz) {
   return memcpy(dest, from,sz);
 }
-/*
-Title-counting routine:
-*/
+
 int get_number_of_titles(char * titlestring){
   int i;
   int number_of_titles=0;
@@ -723,9 +619,7 @@ int get_number_of_titles(char * titlestring){
  * @param fname  Input: File name
  * @return boolean
  */
-/*
-File-existence checking routine:
-*/
+
 int file_exists(const char *fname){
   FILE *file = fopen(fname, "r");
   if (file != NULL){
@@ -744,9 +638,7 @@ int file_exists(const char *fname){
  * @param b Input: second number
  * @return -1, 1 or 0
  */
-/*
-Double-comparison routine:
-*/
+
 int compare_doubles(const void *a,
                     const void *b){
   double *x = (double *) a;
@@ -770,9 +662,6 @@ int compare_doubles(const void *a,
  * @return boolean
  */
 
-/*
-String-begin test routine:
-*/
 int string_begins_with(char* thestring, char beginchar){
 
   /** Define temporary variables */
@@ -796,3 +685,96 @@ int string_begins_with(char* thestring, char beginchar){
 #endif
 //E common section
 
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/stat.h>
+
+// to stop using this system()...
+// sprintf(outputDir,cmd->rootDir);
+// sprintf(buf,"if [ ! -d %s ]; then mkdir %s; fi", outputDir, outputDir);
+// system(buf);
+int mkdir_p(const char *path, mode_t mode) {
+    char tmp[MAXLENGTHOFFILES];
+    char *p = NULL;
+    size_t len;
+
+    int nwritten;
+
+    nwritten = snprintf(tmp, sizeof(tmp), "%s", path);
+    if (nwritten < 0 || (size_t)nwritten >= sizeof(tmp)) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+    
+    len = strlen(tmp);
+    if (len == 0) {
+        return 0;
+    }
+
+    // Remove a trailing slash to avoid double-processing the final directory
+    if (tmp[len - 1] == '/') {
+        tmp[len - 1] = '\0';
+    }
+
+    // Traverse the path looking for directory delimiters
+    for (p = tmp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0'; // Temporarily truncate the string
+            
+            // Attempt to create the parent directory segment
+            if (mkdir(tmp, mode) != 0) {
+                if (errno != EEXIST) {
+                    return -1; // Fail if error is something other than "already exists"
+                }
+            }
+            
+            *p = '/'; // Restore the delimiter
+        }
+    }
+
+    // Create the final target directory
+    if (mkdir(tmp, mode) != 0 && errno != EEXIST) {
+        return -1;
+    }
+
+    return 0;
+}
+
+//B to test
+int main_mkdir(void) {
+    // 0755: Read, write, execute for owner; read and execute for group/others
+    if (mkdir_p("nested/path/to/my/folder", 0755) == 0) {
+        printf("Directory tree created successfully.\n");
+    } else {
+        perror("Error creating directories");
+    }
+    return 0;
+}
+//E
+
+
+//B to solve unsafe strcpy / sprintf usage
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+
+int copy_checked(char *dst, size_t dst_size, const char *src,
+                        const char *label)
+{
+    int n;
+
+    if (dst == NULL || src == NULL || dst_size == 0)
+        return -1;
+
+    n = snprintf(dst, dst_size, "%s", src);
+
+    if (n < 0 || (size_t)n >= dst_size) {
+        fprintf(stderr, "%s too long: max %zu bytes\n", label, dst_size - 1);
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+
+    return 0;
+}
+//E

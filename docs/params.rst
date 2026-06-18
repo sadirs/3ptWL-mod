@@ -1,152 +1,115 @@
-Parameters
-==========
+Command-Line Usage
+==================
 
-This page documents the main parameters used by ``wlcf`` for weak-lensing
-3PCF calculations. The compiled source of truth is
-``getparam/cmdline_defs.h``. For the exact list available in your build, run:
-
-.. code-block:: bash
-
-    ./wlcf --help
-
-When running from ``tests``, use:
+The ``wlcf`` executable accepts ``key=value`` arguments and parameter files.
+The compiled source of truth is ``include/cmdline_defs.h``; inspect the exact
+interface for your build with:
 
 .. code-block:: bash
 
-    ../wlcf --help
+   ./wlcf --help
 
-Command-line parameters use ``key=value`` with no spaces around ``=``.
-Parameter files use the same names and may include spaces around ``=``.
+Syntax
+------
 
-Parameter Files
----------------
-
-:paramfile: Optional parameter file. Parameters in the file override compiled
-    defaults. Command-line values can then override file values.
-
-Example:
+Pass command-line values without spaces around ``=``:
 
 .. code-block:: bash
 
-    ../wlcf paramfile=my_run.ini tree_level=4 verb=2
+   ./wlcf tree_level=4 rootDir=Output_halo prefix=halo_ verbose=1
 
-After each run, ``wlcf`` writes a ``*-usedvalues`` file in ``rootDir``. This is
-the safest template for a new parameter file because it records all values used
-by that build.
+Use ``paramfile`` for a reusable configuration:
+
+.. code-block:: bash
+
+   ./wlcf paramfile=my_run.ini numberThreads=8
+
+Command-line values override values read from the parameter file.  Each run
+writes a complete ``*-usedvalues`` record beneath ``rootDir``; that file is the
+safest template for a new configuration.
 
 Cosmology
 ---------
 
-:z: Redshift used in the computation. Default: ``1.0334``.
+``z``
+   Evaluation redshift. Default: ``1.0334``.
 
-:h: Dimensionless Hubble parameter. Default: ``0.7``.
+``h``, ``Omb``, ``Omc``, ``Omnu``
+   Dimensionless Hubble parameter and matter-density components.
 
-:sigma8: Normalization of the matter power spectrum. Alias: ``s8``. Default:
-    ``0.82``.
+``sigma8``
+   Power-spectrum normalization. Alias: ``s8``.
 
-:Omb: Baryon density parameter. Default: ``0.046``.
+``ns``, ``w``
+   Scalar spectral index and dark-energy equation-of-state parameter.
 
-:Omc: Cold dark matter density parameter. Default: ``0.233``.
-
-:Omnu: Massive neutrino density parameter. Default: ``0.0``.
-
-:ns: Spectral index of the linear power spectrum. Default: ``0.97``.
-
-:w: Dark energy equation-of-state parameter. Default: ``-1.0``.
-
-Input Files
------------
-
-:fnamePS: Linear matter power spectrum table. Alias: ``ps``. Default:
-    ``./input/linear_pk_Takahashi_z0.txt``.
-
-The power-spectrum file is a plain numeric two-column ASCII table:
-``k`` and ``P(k)``. See :doc:`io_formats`.
-
-:Wg: Weak-lensing kernel mode. Default: ``0``.
-
-    * ``0`` uses a Dirac-delta source at the redshift bin.
-    * ``1`` reads a kernel from ``fWgchi``.
-
-:fWgchi: Weak-lensing kernel table. Alias: ``fwgchi``. Default:
-    ``./input/Wg_Takahashi_z05078.txt``.
-
-Model And Numerical Setup
--------------------------
-
-:tree_level: Bispectrum/model branch. Alias: ``tlev``. Default: ``3``.
-
-    * ``1`` = Standard Perturbation Theory (SPT).
-    * ``2`` = P2 approximation.
-    * ``3`` = EFT branch.
-    * ``4`` or larger = Takahashi/Halo-model inspired branch.
-
-:zbin: Redshift bin used in the projection. Default: ``0.5078``.
-
-:mMax: Maximum multipole order. The code writes moments from ``0`` through
-    ``mMax``. Default: ``5``.
-
-:chiQuadSteps: Number of radial integration steps. Alias: ``chiqst``.
-    Default: ``300``.
-
-:GLpoints: Number of Gauss-Legendre points. Alias: ``gl``. Default: ``64``.
-
-:Nell: Number of angular multipole samples. Default: ``128``.
-
-:ellmin: Minimum multipole value. Default: ``0.001``.
-
-:ellmax: Maximum multipole value. Default: ``10000.0``.
-
-Output
+Inputs
 ------
 
-:rootDir: Output directory for logs and used-parameter files. Alias: ``root``.
-    Default: ``Output``.
+``fnamePS``
+   Linear matter power-spectrum table. Alias: ``ps``.
 
-:path_Bells: Output directory for angular correlation and bispectrum tables.
-    Alias: ``bellout``. Default: ``Bell_outputs``.
+``Wg``
+   Lensing-kernel mode. ``0`` uses a source plane at ``zbin``; ``1`` reads
+   ``fWgchi``.
 
-:prefix: Prefix prepended to most output file names. Alias: ``pre``. Default:
-    ``run1_``.
+``fWgchi``
+   Two-column weak-lensing kernel table. Alias: ``fwgchi``.
 
-:writevectors: Whether to write flattened intermediate vectors. Default:
-    ``true``.
+See :doc:`ps_files` for file formats and unit conventions.
 
-Avoid leading ``./`` and trailing ``/`` in local ``rootDir`` values; the C
-startup code creates missing output directories from the provided path.
+Model and Numerical Controls
+----------------------------
 
-Verbosity And Runtime
----------------------
+``tree_level``
+   Bispectrum branch. Alias: ``tlev``. ``1`` selects standard perturbation
+   theory, ``2`` the power-spectrum-squared approximation, ``3`` the EFT
+   branch, and ``4`` the Takahashi/Halo-model inspired branch.
 
-:chatty: Additional internal progress output. Default: ``2``.
+``zbin``
+   Source redshift used in the projected weak-lensing calculation.
 
-:verbose: Terminal verbosity. Alias: ``verb``. Default: ``2``.
+``mMax``
+   Maximum 3PCF multipole. Moments from zero through ``mMax`` are written.
 
-:verbose_log: Log-file verbosity. Alias: ``verblog``. Default: ``1``.
+``chiQuadSteps``
+   Number of radial integration steps. Alias: ``chiqst``.
 
-:numberThreads: Number of OpenMP threads when OpenMP support is compiled.
-    Alias: ``nthreads``. Default in OpenMP builds: ``16``.
+``GLpoints``
+   Number of Gauss-Legendre points. Alias: ``gl``.
 
-:options: Additional option string for specialized behavior. Alias: ``opt``.
-    Default: empty.
+``Nell``, ``ellmin``, ``ellmax``
+   Size and range of the angular multipole grid.
 
-Examples
---------
+Output and Runtime
+------------------
 
-Run the default parameter set from ``tests``:
+``rootDir``
+   Directory containing every product from a run. Alias: ``root``. Default:
+   ``Output``.
+
+``prefix``
+   Prefix prepended to model and grid products. Alias: ``pre``. Default:
+   ``run1_``.
+
+``writevectors``
+   Write flattened intermediate vectors in addition to matrix products.
+
+``verbose`` and ``verbose_log``
+   Terminal and file-log verbosity. Aliases: ``verb`` and ``verblog``.
+
+``numberThreads``
+   OpenMP thread count. Alias: ``nthreads``.
+
+``options``
+   Optional specialized behavior string. Alias: ``opt``.
+
+Example
+-------
 
 .. code-block:: bash
 
-    ../wlcf
-
-Run the Takahashi/Halo-model branch:
-
-.. code-block:: bash
-
-    ../wlcf tree_level=4 ps=./input/linear_pk_Takahashi_z0.txt
-
-Run with a custom output prefix:
-
-.. code-block:: bash
-
-    ../wlcf prefix=halo_model_z05078_ path_Bells=Bell_outputs
+   ./wlcf rootDir=Output_halo prefix=halo_z05078_ \
+      fnamePS=./input/linear_pk_Takahashi_z0.txt \
+      tree_level=4 zbin=0.5078 mMax=5 Nell=128 \
+      chiQuadSteps=300 GLpoints=64 numberThreads=8

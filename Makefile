@@ -24,35 +24,46 @@ $(info )
 
 MAIN = main.o
 
-OBJS = main.o background.o functions.o libs.o \
+ifeq ($(ADDONSON),0)
+OBJS = main.o startrun.o wlcf.o wlcfio.o background.o functions.o libs.o \
 		procedures.o tests.o twobessel.o utils.o \
 		zetam.o
+else
+OBJS = main.o startrun.o wlcf.o wlcfio.o background.o functions.o libs.o \
+		procedures.o tests.o twobessel.o utils.o \
+		zetam.o abi_check.o
+endif
 
-#ifeq ($(GETPARAM_ON),1)
-OBJS += startrun.o
-#endif
-
-PYTHON_FILES = python/fkpt2.pyx python/setup.py python/cfkpt2.pxd
+PYTHON_FILES = python/wlcfpy.pyx setup.py python/cwlcfpy.pxd.in
 
 all: $(EXEC) lib$(EXEC).a wlcfpy
-#all: $(EXEC) lib$(EXEC).a
 
 lib$(EXEC).a: $(OBJS) $(EXTERNAL)
-	$(AR)  $@ $(addprefix build/, $(OBJS) $(TOOLS) $(SOURCE) $(EXTERNAL) $(EXTERNALCXX))
+	$(AR)  $@ $(addprefix $(WRKDIR)/, $(OBJS) $(TOOLS) $(SOURCE) $(EXTERNAL) $(EXTERNALCXX))
 
 $(EXEC): $(OBJS) $(EXTERNAL) $(MAIN)
-	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o $(EXEC) $(addprefix build/,$(notdir $^)) $(MLIBS)
-#	 $(FITSIOLIBS)
+	$(CC) $(OPTFLAG) $(OMPFLAG) $(LDFLAG) -o $(EXEC) $(addprefix $(WRKDIR)/,$(notdir $^)) $(MLIBS)
 
-wlcfpy: lib$(EXEC).a python/wlcfpy.pyx python/cwlcfpy.pxd
-	export CC=$(CC); output=$$($(PYTHON) -m pip install . 2>&1); \
-    echo "$$output"; \
-    if echo "$$output" | grep -q "ERROR: Cannot uninstall"; then \
-        site_packages=$$($(PYTHON) -c "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib())" || $(PYTHON) -c "import site; print(site.getsitepackages()[0])") && \
-        echo "Cleaning up previous installation in: $$site_packages" && \
-        rm -rf $$site_packages/wlcfpy* && \
-        $(PYTHON) -m pip install .; \
-    fi
+ifeq ($(CLASSLIBON),1)
+wlcfpy: python/wlcfpy.pyx python/cwlcfpy.pxd.in setup.py Makefile_settings addons/Makefile_addons_settings
+	export CC=$(CC); \
+	output=$$($(PYTHON) -m pip install . 2>&1); \
+	status=$$?; \
+	echo "$$output"; \
+	if [ $$status -ne 0 ]; then \
+	    if echo "$$output" | grep -q "ERROR: Cannot uninstall"; then \
+	        site_packages=$$($(PYTHON) -c "import sysconfig; print(sysconfig.get_paths()['purelib'])" || $(PYTHON) -c "import site; print(site.getsitepackages()[0])"); \
+	        echo "Cleaning up previous installation in: $$site_packages"; \
+	        rm -rf "$$site_packages"/wlcfpy*.egg-info; \
+	        rm -rf "$$site_packages"/wlcfpy*.dist-info; \
+	        $(PYTHON) -m pip install .; \
+	    else \
+	        exit $$status; \
+	    fi; \
+	fi
+else
+wlcfpy:
+endif
 
 .PHONY : clean
 clean: .base
@@ -62,3 +73,5 @@ clean: .base
 	rm -f $(MDIR)/python/wlcfpy.c
 	rm -rf $(MDIR)/python/build
 	rm -rf wlcfpy.egg-info
+	rm -f $(MDIR)/python/cwlcfpy.pxd
+

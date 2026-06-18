@@ -1,48 +1,49 @@
-Linear Power Spectrum Files
-===========================
+Inputs and Parameter Files
+==========================
 
-``wlcf`` reads the linear matter power spectrum from the file selected by
-``fnamePS`` or its alias ``ps``.
+Linear Power Spectrum
+---------------------
 
-Format
-------
+``fnamePS`` (alias ``ps``) selects a header-free numeric ASCII table with two
+columns:
 
-The file must be a plain numeric ASCII table with two columns:
-
-* ``k`` in units of ``h/Mpc``.
-* ``P(k)`` in units of ``(Mpc/h)^3``.
+* wavenumber :math:`k` in ``h/Mpc``;
+* linear matter power spectrum :math:`P(k)` in ``(Mpc/h)^3``.
 
 Example:
 
 .. code-block:: text
 
-    1.000000e-03  2.345678e+04
-    2.000000e-03  1.987654e+04
-    5.000000e-03  1.234567e+04
+   1.000000e-03  2.345678e+04
+   2.000000e-03  1.987654e+04
+   5.000000e-03  1.234567e+04
 
-Do not include header or comment lines in this file. The current reader expects
-two floating-point values per row.
+Generate the table with CAMB, CLASS, or another validated source.  Its
+redshift, normalization, cosmology, and units must agree with the run
+parameters.
 
-Usage
------
+Weak-Lensing Kernel
+-------------------
 
-From ``tests``:
+When ``Wg=1``, ``fWgchi`` selects another header-free, two-column table:
 
-.. code-block:: bash
+* comoving distance ``chi`` in ``Mpc/h``;
+* lensing-kernel value ``Wg(chi)``.
 
-    ../wlcf ps=./input/linear_pk_Takahashi_z0.txt
+With ``Wg=0``, the code instead uses the source plane defined by ``zbin``.
 
-Equivalent long-form parameter:
+Parameter Files
+---------------
 
-.. code-block:: bash
+A parameter file contains the same names shown by ``./wlcf --help``.  Start
+from a generated ``*-usedvalues`` file whenever possible.  Relative input paths
+are resolved from the process working directory, not from the parameter-file
+location.
 
-    ../wlcf fnamePS=./input/linear_pk_Takahashi_z0.txt
+Reproducibility
+---------------
 
-The power spectrum can be generated with Boltzmann solvers such as CAMB or
-CLASS. Make sure the redshift, cosmology, and units are consistent with the
-rest of the run configuration.
-
-See Also
---------
-
-See :doc:`io_formats` for the weak-lensing kernel and output table formats.
+Archive the input tables, used-parameter file, repository commit, compiler and
+dependency versions, and output ``info.txt`` together.  A power-spectrum file
+with the correct shape but inconsistent cosmology can produce a plausible yet
+scientifically invalid result.

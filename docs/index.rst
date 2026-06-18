@@ -1,38 +1,99 @@
-.. 3ptWL-mod documentation master file, created by
-   sphinx-quickstart on Thu May  9 13:43:36 2024.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
-
 3ptWL-mod
 =========
 
-3ptWL-mod models weak-lensing correlation functions, with a current focus on
-multipoles of the convergence three-point correlation function.
+**3ptWL-mod** computes theoretical multipoles of the three-point correlation
+function (3PCF) of projected scalar fields, with a focus on weak-lensing
+convergence.  The public workflow provides:
 
-The project was previously published as ``wlcf``.  For compatibility, the
-command-line executable, static library, Python extension, environment
-variables, and public APIs retain the names ``wlcf``, ``libwlcf.a``, and
-``wlcfpy``.
+* a compiled C command-line executable, ``wlcf``;
+* a static library, ``libwlcf.a``;
+* a Cython wrapper, ``wlcfpy``;
+* notebook workflows for 3PCF visualization and neural-network emulation.
+
+The models include perturbation-theory, effective-field-theory, and
+Takahashi/Halo-model inspired bispectrum branches.  Although the repository is
+named 3ptWL-mod, the executable and Python module retain their historical
+``wlcf`` names for compatibility.
+
+Basic Usage
+-----------
+
+Build the executable, static library, and Python wrapper from a source checkout:
+
+.. code-block:: bash
+
+   make clean
+   make PYTHON=python3 all
+
+Run a compact command-line calculation:
+
+.. code-block:: bash
+
+   ./wlcf rootDir=Output_quick prefix=quick_ \
+      fnamePS=./input/linear_pk_Takahashi_z0.txt \
+      numberThreads=1 verbose=0 verbose_log=0 \
+      mMax=2 Nell=32 chiQuadSteps=40 GLpoints=24 writevectors=false
+
+Or use the Python wrapper:
+
+.. code-block:: python
+
+   from wlcfpy import wlcf
+
+   model = wlcf()
+   model.set({
+       "rootDir": "Output_python",
+       "prefix": "python_",
+       "fnamePS": "./input/linear_pk_Takahashi_z0.txt",
+       "tree_level": 4,
+       "mMax": 2,
+       "Nell": 32,
+       "chiQuadSteps": 40,
+       "GLpoints": 24,
+       "numberThreads": 1,
+       "verbose": 0,
+       "verbose_log": 0,
+       "writevectors": False,
+   })
+   cputime = model.Run()
+   model.clean_all()
+
+How to Use This Guide
+---------------------
+
+Start with :doc:`installation` and :doc:`quickstart`.  For production runs,
+read :doc:`params`, :doc:`ps_files`, and :doc:`io_formats` before increasing
+the numerical resolution.  The :doc:`tutorials/index` section contains the
+end-to-end 3PCF and emulator workflows.  Developers should also consult
+:doc:`development` and :doc:`troubleshooting`.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: User Guide
 
    overview
    installation
+   quickstart
    params
+   configuration
    ps_files
    io_formats
-   pre_post_process
-   addons
    python
-   handson
+   performance
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Tutorials
+
+   tutorials/index
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Reference
+
    3pcf
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   addons
+   api
+   troubleshooting
+   development
+   citing

@@ -1,5 +1,5 @@
 # ----- MAKE FILE machine definitions (AddOns settings) -----
-# Mario A. Rodriguez-Meza, Ciudad de Mexico, 15.02.2026
+# Mario A. Rodriguez-Meza, Ciudad de Mexico, 01.05.2026
 #
 #
 
@@ -31,20 +31,11 @@ endif
 # In some routines/methods
 #   it will be possible to set the following flags
 
-# ADD TEMPLATE
-# set of useful default values for the unit sphere
-TEMPLATE_ON = 0
-
-#B for some addons will be useful this switches
-DEFINEFLAGS =
-#
+#B logscale for histograms
 LOGBINON = 0
 ifeq ($(LOGBINON),1)
-DEFINEFLAGS += -D_LOGBIN_
+OPT2 += -DLOGBIN
 endif
-#
-#
-OPT2 += $(DEFINEFLAGS)
 #E
 #
 

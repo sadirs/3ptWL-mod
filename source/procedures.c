@@ -1,109 +1,164 @@
-//==========================================================================
+/*==============================================================================
+ NAME: procedures.c                [wlcf]
+ Written by: A. Aviles et al.
+ Starting date: 15.02.2026
+ Purpose: Initial routine
+ Language: C
+ Major revision:
+ ==============================================================================*/
 //        1          2          3          4        ^ 5          6          7
 
-/*
-============================================================================
-NAME: procedures.c                           [wlcf]
-Written by: S. Aviles et al.
-Starting date: February 2026
-Purpose: Procedures for initialization, allocation, integration, I/O,
-         interpolation, quadrature, and output writing
-Language: C
-*/
-//==========================================================================
-
+#include <stdint.h>
+#include <limits.h>
 
 #include "functions.h"
 #include "procedures.h"
 
 #define m_PI   3.1415926535897932384626433
 
-/* 
-Initial routine:
+static int close_checked(FILE **fp, struct cmdline_data *cmd,
+                         const char *routineName, const char *path)
+{
+    if (*fp == NULL)
+        return SUCCESS;
 
-To be called in main:
+    if (ferror(*fp)) {
+        fclose(*fp);
+        *fp = NULL;
+        COSMO_FAIL(cmd, "%s: write error while writing %s\n",
+                   routineName, path);
+    }
+
+    if (fclose(*fp) != 0) {
+        *fp = NULL;
+        COSMO_FAIL(cmd, "%s: error closing output file %s\n",
+                   routineName, path);
+    }
+
+    *fp = NULL;
+    return SUCCESS;
+}
+
+/*
+ Initial routine:
+
+ To be called in main:
     Initial(&cmd, &gd);
 
-This routine is in charge of the initialization of the main
-quantities required by the code. It computes the linear growth
-factor normalization, reads the input power spectrum, and
-evaluates sigma8.
+ This routine is in charge of the initialization
 
-*/
+ Arguments:
+    * `cmd`: Input: structure cmdline_data pointer
+    * `gd`: Input: structure global_data pointer
+ Return (the error status):
+    int SUCCESS or FAILURE
+ */
 int Initial(struct cmdline_data* cmd, struct  global_data* gd)
 {
     string routineName = "Initial";
-    debug_tracking_s("001", routineName);
 
+    if (cmd == NULL || gd == NULL) return FAILURE;
     gd->Dpz0 = Dplusf(cmd, gd, 0.0);
-    // Dpz0: linear growth factor evaluated at redshift z = 0
+    if (!isfinite(gd->Dpz0))
+        COSMO_FAIL(cmd, "%s: invalid Dplus(z=0): %g\n", routineName, gd->Dpz0);
 
-    debug_tracking_r("002", gd->Dpz0);
-    read_inputpk(cmd, gd);
+    if (read_inputpk(cmd, gd) == FAILURE)           // Read linear PS
+        return FAILURE;                             //  power spectrum from CAMB
 
-    gd->sigma8 =  sigmaRTH(cmd, gd, 8,0.001,8.,100);
-    // sigma8: rms matter fluctuation amplitude in spheres of radius 8 Mpc/h
-
-    debug_tracking_s("003... final", routineName);
-
-    return SUCCESS;
-}
-
-/* 
-Allocation routine for internal vectors:
-*/
-int allocate_iv(struct cmdline_data* cmd, struct  global_data* gd)
-{
-    iv.Nell   = cmd->Nell;
-    iv.ellmax = cmd->ellmax;
-    iv.ellmin = cmd->ellmin;
-    iv.ellT   = malloc(iv.Nell * sizeof(double *));
-    
-    for(int i=0; i<iv.Nell ; i++){
-        iv.ellT[i]= exp(log(iv.ellmin)
-        + i*log(iv.ellmax/iv.ellmin)/(iv.Nell-1.0));
-    }
-
-    int NumMoments=cmd->mMax+1;
-    iv.BmVectors  = malloc(NumMoments * sizeof(double *));
-    iv.BmVectorsp = malloc(NumMoments * sizeof(double *));
-    for(int m=0; m<NumMoments; m++) {
-        iv.BmVectors [m] = malloc(iv.Nell * iv.Nell * sizeof(double));
-        iv.BmVectorsp[m] = malloc(iv.Nell * iv.Nell * sizeof(double));
-        for(int ij=0; ij< iv.Nell*iv.Nell; ij++){
-             iv.BmVectors [m][ij] = 0;
-             iv.BmVectorsp[m][ij] = 0;
-        }
-    }
+    gd->sigma8 = sigmaRTH(cmd, gd, 8,0.001,8.,100); // Computation of sigma8
+    if (!isfinite(gd->sigma8) || gd->sigma8 <= 0.0)
+        COSMO_FAIL(cmd, "%s: invalid sigma8 from input P(k): %g\n",
+                   routineName, gd->sigma8);
 
     return SUCCESS;
 }
 
-
-/*
-Bm(ell1, ell2) integration routine:
-
-Each OpenMP worker owns independent (ell1, ell2) cells and performs the
-chi integral sequentially for that cell. This preserves trapezoidal order
-while allowing the symmetric ell grid to be computed in parallel.
-*/
+// Needs allocated vectors iv.BmVectors[m]
 int Bmell(struct cmdline_data* cmd, struct  global_data* gd)
 {
     string routineName = "Bmell";
-    int NumMoments=cmd->mMax+1;
-    int Nell = iv.Nell;
-    int chiQuadSteps = iv.chiQuadSteps;
-    int GLpoints = cmd->GLpoints;
-    long total_cells = (long)Nell * (long)Nell;
+    double chimax, chimin;
 
-/*    if(cmd->chatty>0){
-        printf("\nComputing Bm(ell1,ell2) for symmetric %d x %d array of ell values  \n",
-            iv.Nell, iv.Nell);
-        printf("    ellmin = %f, ellmax = %f  \n",
-            iv.ellmin, iv.ellmax);
-        printf("    Number of moments = %d\n", cmd->mMax+1);
-        printf("    Quadrature chi steps= %d\n", iv.chiQuadSteps);
-    } */
+    if (cmd == NULL || gd == NULL)
+        return FAILURE;
+
+    if (cmd->mMax < 0 || cmd->mMax == INT_MAX)
+        COSMO_FAIL(cmd, "%s: invalid mMax = %d\n", routineName, cmd->mMax);
+
+    if (iv.Nell < 2 || iv.chiQuadSteps < 2)
+        COSMO_FAIL(cmd, "%s: invalid integration table sizes: Nell=%d chiQuadSteps=%d\n",
+                   routineName, iv.Nell, iv.chiQuadSteps);
+
+    if (iv.ellT == NULL ||
+        iv.chiT_chiint == NULL ||
+        iv.zT_chiint == NULL ||
+        iv.DpT_chiint == NULL ||
+        iv.rsigma_chiint == NULL ||
+        iv.neff_chiint == NULL ||
+        iv.q_chiint == NULL ||
+        iv.BmVectors == NULL ||
+        iv.BmVectorsp == NULL)
+        COSMO_FAIL(cmd, "%s: integration tables are not allocated\n", routineName);
+
+    size_t Nell = (size_t)iv.Nell;
+    size_t NumMoments = (size_t)cmd->mMax + 1;
+    size_t size_max = (size_t)-1;
+
+    if (Nell > (size_t)INT_MAX / Nell)
+        COSMO_FAIL(cmd, "%s: Nell (%d) is too large for int loops\n",
+                   routineName, iv.Nell);
+
+    size_t Nell2 = Nell * Nell;
+
+    if (Nell2 > size_max / sizeof(double))
+        COSMO_FAIL(cmd, "%s: Nell (%d) is too large for Nell*Nell arrays\n",
+                    routineName, iv.Nell);
+
+    if (NumMoments > size_max / sizeof(double *))
+        COSMO_FAIL(cmd, "%s: mMax (%d) is too large for row pointers\n",
+                    routineName, cmd->mMax);
+
+    if (NumMoments > size_max / Nell2 / sizeof(double))
+        COSMO_FAIL(cmd, "%s: Nell (%d) and mMax (%d) request too much Bm storage\n",
+                   routineName, iv.Nell, cmd->mMax);
+
+    int NumMomentsInt = cmd->mMax + 1;
+    int Nell2Int = iv.Nell * iv.Nell;
+
+    for (int m = 0; m < NumMomentsInt; m++) {
+        if (iv.BmVectors[m] == NULL || iv.BmVectorsp[m] == NULL)
+            COSMO_FAIL(cmd, "%s: Bm vector row %d is not allocated\n",
+                       routineName, m);
+    }
+    
+    //B
+    for (int i = 0; i < iv.chiQuadSteps; i++) {
+        if (!isfinite(iv.chiT_chiint[i]) || iv.chiT_chiint[i] <= 0.0)
+            COSMO_FAIL(cmd, "%s: invalid chi value at i=%d: %g\n",
+                       routineName, i, iv.chiT_chiint[i]);
+
+        if (i > 0 && iv.chiT_chiint[i] <= iv.chiT_chiint[i - 1])
+            COSMO_FAIL(cmd, "%s: chi grid must be increasing at i=%d: chi[i-1]=%g chi[i]=%g\n",
+                       routineName, i, iv.chiT_chiint[i - 1], iv.chiT_chiint[i]);
+
+        if (!isfinite(iv.zT_chiint[i]) ||
+            !isfinite(iv.DpT_chiint[i]) ||
+            !isfinite(iv.rsigma_chiint[i]) ||
+            !isfinite(iv.neff_chiint[i]) ||
+            !isfinite(iv.q_chiint[i]))
+            COSMO_FAIL(cmd, "%s: non-finite integration table value at i=%d: z=%g Dp=%g rsigma=%g neff=%g q=%g\n",
+                       routineName, i,
+                       iv.zT_chiint[i],
+                       iv.DpT_chiint[i],
+                       iv.rsigma_chiint[i],
+                       iv.neff_chiint[i],
+                       iv.q_chiint[i]);
+    }
+    //E
+
+    int status = SUCCESS;
+//E
+
     verb_print_min_info(cmd->verbose, cmd->verbose_log, gd->outlog,
     "\n%s: Computing Bm(ell1,ell2) for symmetric %d x %d array of ell values\n",
     routineName, iv.Nell, iv.Nell);
@@ -115,208 +170,681 @@ int Bmell(struct cmdline_data* cmd, struct  global_data* gd)
     verb_print_min_info(cmd->verbose, cmd->verbose_log, gd->outlog,
                         "    Quadrature chi steps= %d\n", iv.chiQuadSteps);
 
-    double *xGL = malloc(GLpoints * sizeof(double));
-    double *wGL = malloc(GLpoints * sizeof(double));
-    gaussleg(-m_PI, m_PI, xGL, wGL, GLpoints);
+    chimax = iv.chiT_chiint[iv.chiQuadSteps-1];
+    chimin = iv.chiT_chiint[0];
 
-    // Each cell owns its chi integral, preserving trapezoid order under OpenMP.
-#ifdef OPENMPCODE
-#pragma omp parallel for default(none) \
-shared(cmd, gd, iv, NumMoments, Nell, chiQuadSteps, GLpoints, \
-       total_cells, xGL, wGL) schedule(dynamic)
-#endif
-    for (long cell=0; cell<total_cells; cell++){
-        int i = cell / Nell;
-        int j = cell % Nell;
-        if (j < i) continue;
+    double chi, z, Dp, rsigma, neff, qv;
+    double chi_im1;
+    double chiprev, deltachi;
+    
+    //B
+    double **BmvectorsB = NULL;
+    double **BmvectorsA = NULL;
+    int Bmvectors_rows = 0;
 
-        double ell1 = iv.ellT[i];
-        double ell2 = iv.ellT[j];
-        double integral[NumMoments];
-        double previous[NumMoments];
+    #ifdef OPENMPCODE
+    double **BmVectors = NULL;
+    double **BmVectorsp = NULL;
+    int BmVectors_rows = 0;
+    #endif
 
-        for(int m=0; m<NumMoments; m++)
-            integral[m] = 0.0;
-
-        for (int ichi=0; ichi<chiQuadSteps; ichi++){
-            double chi    = iv.chiT_chiint[ichi];
-            double z      = iv.zT_chiint[ichi];
-            double Dp     = iv.DpT_chiint[ichi];
-            double rsigma = iv.rsigma_chiint[ichi];
-            double neff   = iv.neff_chiint[ichi];
-            double qv     = iv.q_chiint[ichi];
-            double k1 = ell1/chi;
-            double k2 = ell2/chi;
-            double val[NumMoments];
-            double alphaEFT = -3.0;
-            double EFTctr = alphaEFT*pow(Dp,2);
-
-            for(int m=0; m<NumMoments; m++)
-                val[m] = 0.0;
-
-            for(int igl=0; igl<GLpoints; igl++){
-                double varphi = xGL[igl];
-                double w = wGL[igl];
-                double k3 = sqrt(k1*k1 + k2*k2 - 2.*k1*k2 * cos(varphi));
-                double BT;
-
-                if (cmd->tree_level==1){
-                    BT = Bispec_tree(cmd, gd, k1, k2, k3, Dp);
-                } else if (cmd->tree_level==2){
-                    BT = Bispec_P2(cmd, gd, k1, k2, k3, Dp);
-                } else if (cmd->tree_level==3){
-                    BT  = Bispec_tree_EFT(cmd, gd, k1, k2, k3, Dp, EFTctr);
-                } else {
-                    BT  = Bispec_Takahashi(cmd, gd, k1, k2, k3, z, Dp,
-                                            rsigma, neff);
-                }
-
-                for(int m=0; m<NumMoments; m++)
-                    val[m] += w*BT*cos(m*varphi);
-            }
-
-            double projection_weight = pow(qv,3.)/pow(chi,4.);
-            double projected[NumMoments];
-            for(int m=0; m<NumMoments; m++)
-                projected[m] = projection_weight * val[m]/(2*m_PI);
-
-            if (ichi == 0) {
-                for(int m=0; m<NumMoments; m++) {
-                    integral[m] += projected[m] * chi;
-                    previous[m] = projected[m];
-                }
-            } else {
-                double deltachi = chi - iv.chiT_chiint[ichi-1];
-                for(int m=0; m<NumMoments; m++) {
-                    integral[m] += 0.5*(previous[m] + projected[m]) * deltachi;
-                    previous[m] = projected[m];
-                }
-            }
-        }
-
-        for(int m=0; m<NumMoments; m++){
-            iv.BmVectorsp[m][i*Nell + j] = integral[m];
-            if(j!=i) iv.BmVectorsp[m][j*Nell + i] = integral[m];
-        }
+    BmvectorsB = calloc((size_t)NumMoments, sizeof(*BmvectorsB));
+    BmvectorsA = calloc((size_t)NumMoments, sizeof(*BmvectorsA));
+    if (BmvectorsB == NULL || BmvectorsA == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating Bmell scratch row pointers\n",
+                        routineName);
     }
 
-    free(xGL);
-    free(wGL);
+    for (int m = 0; m < NumMoments; m++) {
+        BmvectorsB[m] = calloc((size_t)iv.Nell * (size_t)iv.Nell,
+                               sizeof(**BmvectorsB));
+        BmvectorsA[m] = calloc((size_t)iv.Nell * (size_t)iv.Nell,
+                               sizeof(**BmvectorsA));
+        if (BmvectorsB[m] == NULL || BmvectorsA[m] == NULL) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup,
+                            "%s: not enough memory allocating Bmell scratch row %d\n",
+                            routineName, m);
+        }
+        Bmvectors_rows++;
+    }
 
-    // TEST
-    char buf[BUFFERSIZE];
+    #ifdef OPENMPCODE
+    BmVectors = calloc((size_t)NumMoments, sizeof(*BmVectors));
+    BmVectorsp = calloc((size_t)NumMoments, sizeof(*BmVectorsp));
+    if (BmVectors == NULL || BmVectorsp == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating OpenMP Bm row pointers\n",
+                        routineName);
+    }
+
+    for (int m = 0; m < NumMoments; m++) {
+        BmVectors[m] = calloc((size_t)iv.Nell * (size_t)iv.Nell,
+                              sizeof(**BmVectors));
+        BmVectorsp[m] = calloc((size_t)iv.Nell * (size_t)iv.Nell,
+                               sizeof(**BmVectorsp));
+        if (BmVectors[m] == NULL || BmVectorsp[m] == NULL) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup,
+                            "%s: not enough memory allocating OpenMP Bm row %d\n",
+                            routineName, m);
+        }
+        BmVectors_rows++;
+    }
+    #endif
+    //E
+    
+        clock_t localtime;
+        chiprev = 0.0; //?
+
+        for (int i=0;i<iv.chiQuadSteps;i++){
+            localtime=clock();
+            
+            chi    = iv.chiT_chiint[i];
+            z      = iv.zT_chiint[i];
+            Dp     = iv.DpT_chiint[i];
+            rsigma = iv.rsigma_chiint[i];
+            neff   = iv.neff_chiint[i];
+            qv     = iv.q_chiint[i];
+            if(i>0)
+                chi_im1 = iv.chiT_chiint[i-1];
+            else
+                chi_im1 = 0.0;
+
+            deltachi = chi - chi_im1;
+            
+#ifdef OPENMPCODE
+    if (Bm(cmd, gd, chi, z, Dp, rsigma, neff, BmVectors) == FAILURE) {
+#else
+    if (Bm(cmd, gd, chi, z, Dp, rsigma, neff) == FAILURE) {
+#endif
+             
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup, "%s: Bm failed at chi step %d\n",
+                        routineName, i);
+    }
+
+        for (int m = 0; m < NumMomentsInt; m++) {
+            for (int ij = 0; ij < Nell2Int; ij++) {
+                    
+#ifdef OPENMPCODE
+                    BmvectorsB[m][ij] = pow(qv,3.)/pow(chi,4.) * BmVectors[m][ij];
+#else
+                    BmvectorsB[m][ij] = pow(qv,3.)/pow(chi,4.) * iv.BmVectors[m][ij];
+#endif
+                }
+            }
+            
+            if(i==0){
+                for (int m = 0; m < NumMomentsInt; m++)
+                    for (int ij = 0; ij < Nell2Int; ij++)
+                        BmvectorsA[m][ij] = BmvectorsB[m][ij];
+                deltachi = chi;
+            }
+
+#ifdef OPENMPCODE
+            for (int m = 0; m < NumMomentsInt; m++)
+                for (int ij = 0; ij < Nell2Int; ij++)
+                    BmVectorsp[m][ij] += 0.5*(BmvectorsA[m][ij]
+                                            +BmvectorsB[m][ij])* deltachi;
+#else
+            for (int m = 0; m < NumMomentsInt; m++)
+                for (int ij = 0; ij < Nell2Int; ij++)
+                    iv.BmVectorsp[m][ij] += 0.5*(BmvectorsA[m][ij]
+                                            +BmvectorsB[m][ij])* deltachi;
+#endif
+
+            for (int m = 0; m < NumMomentsInt; m++)
+                for (int ij = 0; ij < Nell2Int; ij++)
+                    BmvectorsA[m][ij] = BmvectorsB[m][ij];
+        } // end loop i // end pragma for loop
+
+#ifdef OPENMPCODE
+        for (int m = 0; m < NumMomentsInt; m++)
+            for (int ij = 0; ij < Nell2Int; ij++)
+                iv.BmVectorsp[m][ij] += BmVectorsp[m][ij];
+
+#endif
+    
+    //B TEST diagnostic output, non-fatal
     FILE *fp;
-    char str[100];
-    sprintf(str,"%s/tests",cmd->path_Bells);
-    sprintf(buf,"if [ ! -d %s ]; then mkdir %s; fi", str, str);
-    system(buf);
-    sprintf(str,"%s/tests/i_z_chi_qv_Dp.txt",cmd->path_Bells);
-    fp = fopen (str, "w+");
+    char str[MAXLENGTHOFFILES];
+
+    int nwrite = snprintf(str, sizeof(str), "%s/tests", cmd->rootDir);
+    if (nwrite < 0 || (size_t)nwrite >= sizeof(str)) {
+        verb_print_normal_info(cmd->verbose, cmd->verbose_log, gd->outlog,
+                               "\n%s: warning!! tests directory path too long; skipping diagnostic output.\n",
+                               routineName);
+        goto skip_diagnostic;
+    }
+
+    if (mkdir_p(str, 0755) != 0) {
+        verb_print_normal_info(cmd->verbose, cmd->verbose_log, gd->outlog,
+                               "\n%s: warning!! directory %s can not be created; skipping diagnostic output.\n",
+                               routineName, str);
+        goto skip_diagnostic;
+    }
+
+    nwrite = snprintf(str, sizeof(str),
+                      "%s/tests/i_z_chi_qv_Dp.txt", cmd->rootDir);
+    if (nwrite < 0 || (size_t)nwrite >= sizeof(str)) {
+        verb_print_normal_info(cmd->verbose, cmd->verbose_log, gd->outlog,
+                               "\n%s: warning!! diagnostic output path too long; skipping diagnostic output.\n",
+                               routineName);
+        goto skip_diagnostic;
+    }
+
+    fp = fopen(str, "w+");
     if (fp != NULL) {
-        for(int i=0; i<iv.chiQuadSteps ; i++){
+        for (int i = 0; i < iv.chiQuadSteps; i++) {
             fprintf(fp, "%d %15e %15e %15e %15e \n",
                     i, iv.zT_chiint[i], iv.chiT_chiint[i],
                     iv.q_chiint[i], iv.DpT_chiint[i]);
         }
-        fclose (fp);
+        fclose(fp);
     } else {
         verb_print_normal_info(cmd->verbose, cmd->verbose_log, gd->outlog,
-                               "\n%s: warning!! file %s can not be opened.\n",
+                               "\n%s: warning!! file %s can not be opened; skipping diagnostic output.\n",
                                routineName, str);
     }
 
-    return SUCCESS;
+    skip_diagnostic:
+    //E TEST
+
+    //B freeing memory
+cleanup:
+#ifdef OPENMPCODE
+    for (int m = 0; m < BmVectors_rows; m++) {
+        free(BmVectorsp[m]);
+        free(BmVectors[m]);
+    }
+    free(BmVectorsp);
+    free(BmVectors);
+#endif
+
+    for (int m = 0; m < Bmvectors_rows; m++) {
+        free(BmvectorsA[m]);
+        free(BmvectorsB[m]);
+    }
+    free(BmvectorsA);
+    free(BmvectorsB);
+    //E
+
+    return status;
 }
 
-/* 
-Single-chi bispectrum projection routine:
 
-*/
+#ifdef OPENMPCODE
 int Bm(struct cmdline_data* cmd, struct  global_data* gd,
-        double chi, double z, double Dp, double r_sigma, double n_eff)
+        double chi, double z, double Dp, double r_sigma, double n_eff, double **BmVectors)
 {
+    string routineName = "Bm";
+    
+    //B
+    if (cmd == NULL || gd == NULL || BmVectors == NULL)
+        return FAILURE;
+
+    if (cmd->mMax < 0 || cmd->mMax == INT_MAX)
+        COSMO_FAIL(cmd, "%s: invalid mMax = %d\n", routineName, cmd->mMax);
+
+    if (cmd->GLpoints < 2)
+        COSMO_FAIL(cmd, "%s: GLpoints (%d) must be at least 2\n",
+                   routineName, cmd->GLpoints);
+
+    if (iv.Nell < 2 || iv.ellT == NULL)
+        COSMO_FAIL(cmd, "%s: ell table is not allocated or has invalid size\n",
+                   routineName);
+
+    if (!isfinite(chi) || chi <= 0.0 ||
+        !isfinite(z) ||
+        !isfinite(Dp) ||
+        !isfinite(r_sigma) || r_sigma <= 0.0 ||
+        !isfinite(n_eff))
+        COSMO_FAIL(cmd, "%s: invalid Bm inputs: chi=%g z=%g Dp=%g r_sigma=%g n_eff=%g\n",
+                   routineName, chi, z, Dp, r_sigma, n_eff);
+
+    size_t Nell = (size_t)iv.Nell;
+    size_t NumMomentsSize = (size_t)cmd->mMax + 1;
+    size_t size_max = (size_t)-1;
+
+    if (Nell > (size_t)INT_MAX / Nell)
+        COSMO_FAIL(cmd, "%s: Nell (%d) is too large for int indexing\n",
+                   routineName, iv.Nell);
+
+    size_t Nell2 = Nell * Nell;
+
+    if (Nell2 > size_max / sizeof(double) ||
+        NumMomentsSize > size_max / sizeof(double *) ||
+        NumMomentsSize > size_max / Nell2 / sizeof(double))
+        COSMO_FAIL(cmd, "%s: Bm output dimensions are too large\n", routineName);
+
+    int NumMoments = cmd->mMax + 1;
+
+    for (int m = 0; m < NumMoments; m++) {
+        if (BmVectors[m] == NULL)
+            COSMO_FAIL(cmd, "%s: BmVectors[%d] is not allocated\n",
+                       routineName, m);
+    }
+    //E
+
+    int status = SUCCESS;
+    double *xGL = NULL;
+    double *wGL = NULL;
+
     double k1,k2,varphi,w,k3,BT, ell1,ell2;
-    double *xGL, *wGL;
     int m=0;
-    int NumMoments=cmd->mMax+1;
-    double val[NumMoments];
     double EFTctr;
     double alphaEFT;
     
-    xGL = malloc(cmd->GLpoints * sizeof(double));
-    wGL = malloc(cmd->GLpoints * sizeof(double));
+    xGL = calloc((size_t)cmd->GLpoints, sizeof(*xGL));
+    wGL = calloc((size_t)cmd->GLpoints, sizeof(*wGL));
+
+    if (xGL == NULL || wGL == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating Gauss-Legendre arrays\n",
+                        routineName);
+    }
+    
     gaussleg(-m_PI, m_PI, xGL, wGL, cmd->GLpoints);
 
     alphaEFT=-3.0;  // =cmd.alphaEFT
-//  alphaEFT: EFT parameter
+
     EFTctr=alphaEFT*pow(Dp,2);
-//   EFTctr  : EFT counterterm contribution
 
+    int failed = 0;
     
-    for(int i=0; i<iv.Nell; i++){
-    for(int j=i; j<iv.Nell; j++){
-        ell1=iv.ellT[i];
-        ell2=iv.ellT[j];
-        k1 = ell1/chi;
-        k2 = ell2/chi;
-        for(int m=0;m<NumMoments;m++) val[m] = 0.0;
+#ifdef OPENMPCODE
+#pragma omp parallel for schedule(dynamic) default(none) \
+    shared(cmd, gd, iv, BmVectors, xGL, wGL, NumMoments, chi, z, Dp, r_sigma, n_eff, EFTctr, failed)
+#endif
+for (int i = 0; i < iv.Nell; i++) {
+    for (int j = i; j < iv.Nell; j++) {
         
-        for(int i=0; i<cmd->GLpoints;i++){
-            varphi = xGL[i];
-            w   = wGL[i];
-            k3  = sqrt( k1*k1 + k2*k2 - 2.*k1*k2 * cos(varphi) );
-            if (cmd->tree_level==1){
+        int local_failed;
+        #pragma omp atomic read
+        local_failed = failed;
+        if (local_failed)
+            continue;
+
+        double ell1 = iv.ellT[i];
+        double ell2 = iv.ellT[j];
+        double k1 = ell1 / chi;
+        double k2 = ell2 / chi;
+        
+        double *val = calloc((size_t)NumMoments, sizeof(*val));
+        if (val == NULL) {
+            #pragma omp atomic write
+            failed = 1;
+            continue;
+        }
+
+        for (int m = 0; m < NumMoments; m++)
+            val[m] = 0.0;
+
+        for (int p = 0; p < cmd->GLpoints; p++) {
+            double varphi = xGL[p];
+            double w = wGL[p];
+            double k3 = sqrt(k1*k1 + k2*k2 - 2.0*k1*k2*cos(varphi));
+
+            double BT;
+            if (cmd->tree_level == 1) {
                 BT = Bispec_tree(cmd, gd, k1, k2, k3, Dp);
-            } else if (cmd->tree_level==2){
+            } else if (cmd->tree_level == 2) {
                 BT = Bispec_P2(cmd, gd, k1, k2, k3, Dp);
-            } else if (cmd->tree_level==3){
-                BT  = Bispec_tree_EFT(cmd, gd, k1, k2, k3, Dp, EFTctr);
+            } else if (cmd->tree_level == 3) {
+                BT = Bispec_tree_EFT(cmd, gd, k1, k2, k3, Dp, EFTctr);
             } else {
-                BT  = Bispec_Takahashi(cmd, gd, k1, k2, k3, z, Dp, r_sigma, n_eff);
+                BT = Bispec_Takahashi(cmd, gd, k1, k2, k3, z, Dp, r_sigma, n_eff);
             }
-            for(int m=0;m<NumMoments;m++) val[m] =  val[m] + w*BT*cos(m*varphi);
+
+            if (!isfinite(BT)) {
+                 #pragma omp atomic write
+                 failed = 1;
+                 continue;
+             }
+            
+            for (int m = 0; m < NumMoments; m++)
+                val[m] += w * BT * cos(m * varphi);
         }
 
-        for(int m=0; m<NumMoments; m++){
-            iv.BmVectors[m][i*iv.Nell + j] = val[m]/(2*m_PI);
-            if(j!=i) iv.BmVectors[m][j*iv.Nell + i] = val[m]/(2*m_PI);
-        }
-    }
-    }
+        for (int m = 0; m < NumMoments; m++) {
+            double out = val[m] / (2.0 * m_PI);
+            
+            if (!isfinite(out)) {
+                 #pragma omp atomic write
+                 failed = 1;
+                 continue;
+             }
 
-    return SUCCESS;
+            
+            BmVectors[m][i * iv.Nell + j] = out;
+            if (j != i)
+                BmVectors[m][j * iv.Nell + i] = out;
+        }
+        free(val);
+    }
 }
 
-/* 
-k-space bispectrum table routine:
-*/
+    if (failed) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: non-finite value while computing BmVectors\n",
+                        routineName);
+    }
+        
+cleanup:
+    free(wGL);
+    free(xGL);
+    
+    return status;
+}
+#else
+int Bm(struct cmdline_data* cmd, struct  global_data* gd,
+        double chi, double z, double Dp, double r_sigma, double n_eff)
+{
+    string routineName = "Bm";
+    
+    //B initial checking
+    if (cmd == NULL || gd == NULL || iv.BmVectors == NULL)
+        return FAILURE;
+
+    if (cmd->mMax < 0 || cmd->mMax == INT_MAX)
+        COSMO_FAIL(cmd, "%s: invalid mMax = %d\n", routineName, cmd->mMax);
+
+    if (cmd->GLpoints < 2)
+        COSMO_FAIL(cmd, "%s: GLpoints (%d) must be at least 2\n",
+                   routineName, cmd->GLpoints);
+
+    if (iv.Nell < 2 || iv.ellT == NULL)
+        COSMO_FAIL(cmd, "%s: ell table is not allocated or has invalid size\n",
+                   routineName);
+
+    if (!isfinite(chi) || chi <= 0.0 ||
+        !isfinite(z) ||
+        !isfinite(Dp) ||
+        !isfinite(r_sigma) || r_sigma <= 0.0 ||
+        !isfinite(n_eff))
+        COSMO_FAIL(cmd, "%s: invalid Bm inputs: chi=%g z=%g Dp=%g r_sigma=%g n_eff=%g\n",
+                   routineName, chi, z, Dp, r_sigma, n_eff);
+
+    size_t Nell = (size_t)iv.Nell;
+    size_t NumMomentsSize = (size_t)cmd->mMax + 1;
+    size_t size_max = (size_t)-1;
+
+    if (Nell > (size_t)INT_MAX / Nell)
+        COSMO_FAIL(cmd, "%s: Nell (%d) is too large for int indexing\n",
+                   routineName, iv.Nell);
+
+    size_t Nell2 = Nell * Nell;
+
+    if (Nell2 > size_max / sizeof(double) ||
+        NumMomentsSize > size_max / sizeof(double *) ||
+        NumMomentsSize > size_max / Nell2 / sizeof(double))
+        COSMO_FAIL(cmd, "%s: Bm output dimensions are too large\n", routineName);
+
+    int NumMoments = cmd->mMax + 1;
+
+    for (int m = 0; m < NumMoments; m++) {
+        if (iv.BmVectors[m] == NULL)
+            COSMO_FAIL(cmd, "%s: iv.BmVectors[%d] is not allocated\n",
+                       routineName, m);
+    }
+    //E
+
+    int status = SUCCESS;
+    double *xGL = NULL;
+    double *wGL = NULL;
+
+    double k1,k2,varphi,w,k3,BT, ell1,ell2;
+
+    int m=0;
+    double *val = NULL;
+    val = calloc((size_t)NumMoments, sizeof(*val));
+    if (val == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating val\n",
+                        routineName);
+    }
+
+    double EFTctr;
+    double alphaEFT;
+
+    xGL = calloc((size_t)cmd->GLpoints, sizeof(*xGL));
+    wGL = calloc((size_t)cmd->GLpoints, sizeof(*wGL));
+
+    if (xGL == NULL || wGL == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating Gauss-Legendre arrays\n",
+                        routineName);
+    }
+    
+    gaussleg(-m_PI, m_PI, xGL, wGL, cmd->GLpoints);
+
+    alphaEFT=-3.0;  // =cmd.alphaEFT
+
+    EFTctr=alphaEFT*pow(Dp,2);
+
+    
+    for(int i=0; i<iv.Nell; i++) {
+        for(int j=i; j<iv.Nell; j++) {
+            ell1=iv.ellT[i];
+            ell2=iv.ellT[j];
+            k1 = ell1/chi;
+            k2 = ell2/chi;
+            for(int m=0;m<NumMoments;m++) val[m] = 0.0;
+
+            for (int p = 0; p < cmd->GLpoints; p++) {
+                varphi = xGL[p];
+                w   = wGL[p];
+                k3  = sqrt( k1*k1 + k2*k2 - 2.*k1*k2 * cos(varphi) );
+                if (cmd->tree_level==1) {
+                    BT = Bispec_tree(cmd, gd, k1, k2, k3, Dp);
+                } else if (cmd->tree_level==2) {
+                    BT = Bispec_P2(cmd, gd, k1, k2, k3, Dp);
+                } else if (cmd->tree_level==3) {
+                    BT  = Bispec_tree_EFT(cmd, gd, k1, k2, k3, Dp, EFTctr);
+                } else {
+                    BT  = Bispec_Takahashi(cmd, gd, k1, k2,
+                                           k3, z, Dp, r_sigma, n_eff);
+                }
+                
+                if (!isfinite(BT)) {
+                    status = FAILURE;
+                    COSMO_FAIL_GOTO(cmd, cleanup,
+                                    "%s: non-finite bispectrum value at ell i=%d j=%d p=%d: k1=%g k2=%g k3=%g z=%g BT=%g\n",
+                                    routineName, i, j, p, k1, k2, k3, z, BT);
+                }
+
+                for (int m = 0; m < NumMoments; m++) {
+                    double term = w * BT * cos(m * varphi);
+
+                    if (!isfinite(term)) {
+                        status = FAILURE;
+                        COSMO_FAIL_GOTO(cmd, cleanup,
+                                        "%s: non-finite Bm quadrature term for m=%d at i=%d j=%d p=%d\n",
+                                        routineName, m, i, j, p);
+                    }
+
+                    val[m] += term;
+                }
+            }
+
+            for(int m=0; m<NumMoments; m++) {
+                double out = val[m] / (2.0 * m_PI);
+
+                if (!isfinite(out)) {
+                    status = FAILURE;
+                    COSMO_FAIL_GOTO(cmd, cleanup,
+                                    "%s: non-finite Bm value for m=%d at i=%d j=%d: %g\n",
+                                    routineName, m, i, j, out);
+                }
+
+                iv.BmVectors[m][i * iv.Nell + j] = out;
+                if (j != i)
+                    iv.BmVectors[m][j * iv.Nell + i] = out;
+            }
+        }
+    }
+
+cleanup:
+    free(val);
+    free(wGL);
+    free(xGL);
+
+    return status;
+
+}
+#endif
+
 int BmKspace(struct cmdline_data* cmd, struct  global_data* gd,
               int Maxm, double kmin, double kmax, int Nk,
               int GLpoints, double z, double Dp, double r_sigma, double n_eff)
 {
-    if(cmd->chatty>0) printf("\nComputing Bm(k1,k2) for symmetric array of %d x %d k1,k2 values  \n", Nk, Nk);
+    string routineName = "BmKspace";
+    double cpumiddle;
+    FILE *fp = NULL;
+    int status = SUCCESS;
+
+    if (cmd == NULL || gd == NULL)
+        return FAILURE;
+
+    if(cmd->verbose>0) printf("\nComputing Bm(k1,k2) for symmetric array of %d x %d k1,k2 values  \n", Nk, Nk);
     
     double k1,k2,varphi,w,k3,BT;
-    double *kT,*xGL, *wGL;
-    double mat[Maxm+1][Nk][Nk];
-    double val[Maxm+1];
+    
+    double *kT = NULL;
+    double *xGL = NULL;
+    double *wGL = NULL;
+    
+    double ***mat = NULL;
+    
+    int mat_m_allocated = 0;
+    int *mat_rows_allocated = NULL;
+
+    double *val = NULL;
+    
+    //B checking arguments
+    if (Maxm < 0 || Maxm == INT_MAX)
+        COSMO_FAIL(cmd, "%s: invalid Maxm = %d\n", routineName, Maxm);
+
+    if (Nk < 2) {
+        COSMO_FAIL(cmd, "%s: Nk must be at least 2, got %d\n",
+                   routineName, Nk);
+    }
+
+    if (GLpoints < 2) {
+        COSMO_FAIL(cmd, "%s: GLpoints must be at least 2, got %d\n",
+                   routineName, GLpoints);
+    }
+
+    if (!isfinite(kmin) || !isfinite(kmax) || kmin <= 0.0 || kmax <= kmin) {
+        COSMO_FAIL(cmd, "%s: invalid k range: kmin=%g kmax=%g\n",
+                   routineName, kmin, kmax);
+    }
+
+    if (!isfinite(z) || !isfinite(Dp) || !isfinite(r_sigma) ||
+        !isfinite(n_eff) || Dp <= 0.0 || r_sigma <= 0.0) {
+        COSMO_FAIL(cmd,
+                   "%s: invalid cosmology inputs: z=%g Dp=%g r_sigma=%g n_eff=%g\n",
+                   routineName, z, Dp, r_sigma, n_eff);
+    }
+
+    //B Last instead of first one
+    if ((size_t)(Maxm + 1) > SIZE_MAX / sizeof(*val)) {
+        COSMO_FAIL(cmd, "%s: Maxm too large for val allocation: %d\n",
+                   routineName, Maxm);
+    }
+    
+    size_t NumMoments = (size_t)Maxm + 1;
+
+    if (NumMoments > SIZE_MAX / sizeof(*val)) {
+        COSMO_FAIL(cmd, "%s: Maxm too large for val allocation: %d\n",
+                   routineName, Maxm);
+    }
+    //E
+
+    if ((size_t)Nk > SIZE_MAX / sizeof(*kT) ||
+        (size_t)GLpoints > SIZE_MAX / sizeof(*xGL)) {
+        COSMO_FAIL(cmd, "%s: Nk or GLpoints too large: Nk=%d GLpoints=%d\n",
+                   routineName, Nk, GLpoints);
+    }
+    //E
+    
+    val = calloc(NumMoments, sizeof(*val));
+
     int m=0;
 
-    kT  = malloc(Nk       * sizeof(double));
-    xGL = malloc(GLpoints * sizeof(double));
-    wGL = malloc(GLpoints * sizeof(double));
+    //B
+    mat = calloc(NumMoments, sizeof(*mat));
+
+    if (mat == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup, "%s: not enough memory allocating mat\n", routineName);
+    }
+
+    mat_rows_allocated = calloc(NumMoments, sizeof(*mat_rows_allocated));
+
+    if (mat_rows_allocated == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup, "%s: not enough memory allocating mat row counters\n", routineName);
+    }
+
+    if (val == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup,
+                        "%s: not enough memory allocating val\n",
+                        routineName);
+    }
+
+    for (int m = 0; m <= Maxm; m++) {
+        mat[m] = calloc((size_t)Nk, sizeof(*mat[m]));
+        if (mat[m] == NULL) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup, "%s: not enough memory allocating mat[%d]\n", routineName, m);
+        }
+        mat_m_allocated++;
+
+        for (int i = 0; i < Nk; i++) {
+            mat[m][i] = calloc((size_t)Nk, sizeof(*mat[m][i]));
+            if (mat[m][i] == NULL) {
+                status = FAILURE;
+                COSMO_FAIL_GOTO(cmd, cleanup, "%s: not enough memory allocating mat[%d][%d]\n",
+                                routineName, m, i);
+            }
+            mat_rows_allocated[m]++;
+        }
+    }
     
+    kT = calloc((size_t)Nk, sizeof(*kT));
+    xGL = calloc((size_t)GLpoints, sizeof(*xGL));
+    wGL = calloc((size_t)GLpoints, sizeof(*wGL));
+
+    if (kT == NULL || xGL == NULL || wGL == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup, "%s: not enough memory allocating quadrature arrays\n",
+                        routineName);
+    }
+    //E
+
     gaussleg(-m_PI, m_PI, xGL, wGL, GLpoints);
     
-    if(cmd->chatty==2)     printf("Maxm=%d, kmin=%f ,kmax=%f, Nk=%d, GLpoints=%d \n",
-            Maxm,    kmin,    kmax,    Nk,    GLpoints);
-    if(cmd->chatty==2) printf("z=%f, Dp=%f, rsigma=%f, neff=%f \n", z,Dp,r_sigma,n_eff);
+    if(cmd->verbose==2)
+        printf("Maxm=%d, kmin=%f ,kmax=%f, Nk=%d, GLpoints=%d \n",
+               Maxm,    kmin,    kmax,    Nk,    GLpoints);
+    if(cmd->verbose==2)
+        printf("z=%f, Dp=%f, rsigma=%f, neff=%f \n", z,Dp,r_sigma,n_eff);
     
     for(int i=0; i<Nk ; i++){
         kT[i]= exp(log(kmin) + i*log(kmax/kmin)/(Nk-1.0));
     }
 
-    gv.time=clock();
+    cpumiddle = CPUTIME;
 
     for(int i=0; i<Nk ; i++){
     for(int j=i; j<Nk ; j++){
@@ -324,67 +852,160 @@ int BmKspace(struct cmdline_data* cmd, struct  global_data* gd,
         k2=kT[j];
         for(int m=0;m<=Maxm;m++) val[m] = 0.0;
         
-        for(int i=0; i<GLpoints;i++){
-            varphi = xGL[i];
-            w   = wGL[i];
-            k3  = sqrt( k1*k1 + k2*k2 - 2.*k1*k2 * cos(varphi) );
-            BT  = Bispec_Takahashi(cmd, gd, k1, k2, k3, z, Dp, r_sigma, n_eff);
-            for(int m=0;m<=Maxm;m++) val[m] =  val[m] + w*BT*cos(m*varphi);
+        for (int p = 0; p < GLpoints; p++) {
+            varphi = xGL[p];
+            w = wGL[p];
+            k3 = sqrt(k1*k1 + k2*k2 - 2.0*k1*k2*cos(varphi));
+
+            BT = Bispec_Takahashi(cmd, gd, k1, k2, k3, z, Dp, r_sigma, n_eff);
+            if (!isfinite(BT)) {
+                status = FAILURE;
+                COSMO_FAIL_GOTO(cmd, cleanup,
+                                "%s: non-finite Bispec_Takahashi value at i=%d j=%d p=%d: k1=%g k2=%g k3=%g z=%g BT=%g\n",
+                                routineName, i, j, p, k1, k2, k3, z, BT);
+            }
+
+            for (int m = 0; m <= Maxm; m++) {
+                double term = w * BT * cos(m * varphi);
+                if (!isfinite(term)) {
+                    status = FAILURE;
+                    COSMO_FAIL_GOTO(cmd, cleanup,
+                                    "%s: non-finite Bnk quadrature term for m=%d at i=%d j=%d p=%d\n",
+                                    routineName, m, i, j, p);
+                }
+                val[m] += term;
+            }
         }
 
-        for(int m=0; m<=Maxm; m++){
+        for (int m = 0; m <= Maxm; m++) {
+            if (!isfinite(val[m])) {
+                status = FAILURE;
+                COSMO_FAIL_GOTO(cmd, cleanup,
+                                "%s: non-finite Bnk value for m=%d at i=%d j=%d: %g\n",
+                                routineName, m, i, j, val[m]);
+            }
+
             mat[m][i][j] = val[m];
-            if(j!=i) mat[m][j][i]=val[m];
+            if (j != i)
+                mat[m][j][i] = val[m];
         }
         
     }
     }
     
-    if(cmd->chatty==2) printf("Bnk time = %f15 \n", (double)(clock()-gv.time) / CLOCKS_PER_SEC  );
-    if(cmd->chatty==2) printf("\n");
+    if(cmd->verbose==2)
+        printf("Bnk time = %f15 \n", CPUTIME - cpumiddle);
+    if(cmd->verbose==2)
+        printf("\n");
     
     // Write
     char int_str[20];
-    char str[100];
+    char str[MAXLENGTHOFFILES];
     for (int m=0; m<Maxm+1; m++){
-        FILE *fp;
-        sprintf(int_str, "%d", m);
-        sprintf(str,"%s/%sBnk_%s.txt",cmd->path_Bells,cmd->prefix,int_str);
-        fp = fopen (str, "w+");
-        
-        for(int i=0; i<Nk ; i++){
-        for(int j=0; j<Nk ; j++){
-            fprintf(fp, "%15e   ", mat[m][i][j]);
-            if(j==Nk-1 && i!=Nk-1) fprintf(fp, " \n");
-        }
+        int nint = snprintf(int_str, sizeof(int_str), "%d", m);
+        if (nint < 0 || (size_t)nint >= sizeof(int_str)) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup, "%s: moment index string too long\n",
+                            routineName);
         }
         
-        fclose (fp);
+        int nwrite = snprintf(str, sizeof(str),
+                            "%s/%sBnk_%s.txt",cmd->rootDir,cmd->prefix,int_str);
+        if (nwrite < 0 || (size_t)nwrite >= sizeof(str)){
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup, "%s: Bnk output path too long\n",
+                            routineName);
+        }
+
+        fp = fopen(str, "w+");
+        if (fp == NULL) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup, "%s: cannot open output file %s\n",
+                            routineName, str);
+        }
+        
+        for (int i = 0; i < Nk; i++) {
+            for (int j = 0; j < Nk; j++) {
+                if (fprintf(fp, "%15e   ", mat[m][i][j]) < 0) {
+                    status = FAILURE;
+                    COSMO_FAIL_GOTO(cmd, cleanup,
+                                    "%s: write failed for %s\n",
+                                    routineName, str);
+                }
+
+                if (j == Nk - 1 && i != Nk - 1) {
+                    if (fprintf(fp, " \n") < 0) {
+                        status = FAILURE;
+                        COSMO_FAIL_GOTO(cmd, cleanup,
+                                        "%s: write failed for %s\n",
+                                        routineName, str);
+                    }
+                }
+            }
+        }
+        
+        if (close_checked(&fp, cmd, routineName, str) == FAILURE) {
+            status = FAILURE;
+            goto cleanup;
+        }
     }
 
-    FILE *fp;
-    sprintf(str,"%s/%skArray.txt",cmd->path_Bells,cmd->prefix);
-    fp = fopen (str, "w+");
-    for(int i=0; i<Nk ; i++){
-        fprintf(fp,"%15e\n", kT[i]);
+    int nwrite = snprintf(str, sizeof(str),
+                          "%s/%skArray.txt",cmd->rootDir,cmd->prefix);
+    if (nwrite < 0 || (size_t)nwrite >= sizeof(str)) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup, "%s: kArray output path too long\n",
+                        routineName);
     }
-    fclose (fp);
+    fp = fopen(str, "w+");
+    if (fp == NULL) {
+        status = FAILURE;
+        COSMO_FAIL_GOTO(cmd, cleanup, "%s: cannot open output file %s\n",
+                        routineName, str);
+    }
 
-    return SUCCESS;
+    for (int i = 0; i < Nk; i++) {
+        if (fprintf(fp, "%15e\n", kT[i]) < 0) {
+            status = FAILURE;
+            COSMO_FAIL_GOTO(cmd, cleanup,
+                            "%s: write failed for %s\n",
+                            routineName, str);
+        }
+    }
+    
+    if (close_checked(&fp, cmd, routineName, str) == FAILURE) {
+        status = FAILURE;
+        goto cleanup;
+    }
+
+cleanup:
+    if (fp != NULL)
+        fclose(fp);
+
+    free(val);
+    free(wGL);
+    free(xGL);
+    free(kT);
+
+    if (mat != NULL) {
+        for (int m = 0; m < mat_m_allocated; m++) {
+            if (mat[m] != NULL) {
+                for (int i = 0; i < mat_rows_allocated[m]; i++)
+                    free(mat[m][i]);
+                free(mat[m]);
+            }
+        }
+    }
+    free(mat_rows_allocated);
+    free(mat);
+    
+    return status;
 }
-
 
 
 //B Routines...
 
-#define EPS 3.0e-11
-
-
-
-
-/* 
-Gauss-Legendre quadrature routine:
-*/
+#define EPSGL 3.0e-11
 void gaussleg(double x1, double x2, double xGL[], double wGL[], int n)
 {
     int m,j,i;
@@ -406,54 +1027,139 @@ void gaussleg(double x1, double x2, double xGL[], double wGL[], int n)
             pp=n*(z*p1-p2)/(z*z-1.0);
             z1=z;
             z=z1-p1/pp;
-        } while (fabs(z-z1) > EPS);
+        } while (fabs(z-z1) > EPSGL);
         xGL[i-1]=xm-xl*z;
         xGL[n+1-i-1]=xm+xl*z;
         wGL[i-1]=2.0*xl/((1.0-z*z)*pp*pp);
         wGL[n+1-i-1]=wGL[i-1];
     }
 }
-#undef EPS
+#undef EPSGL
 
 
-/* 
-Read and extrapolate input linear power spectrum:
-*/
+//B input power spectrum
 int read_inputpk(struct cmdline_data* cmd, struct  global_data* gd)
-//Extrapolation not yet implemented
 {
+    string routineName = "read_inputpk";
     FILE *fp;
+    double k_data, pkz0_data;
+
+    if (cmd == NULL || gd == NULL)
+        return FAILURE;
+    if (cmd->fnamePS == NULL) {
+        COSMO_FAIL(cmd,
+                   "\n%s: power spectrum file name is NULL\n\n",
+                   routineName);
+        return FAILURE;
+    }
+
     gd->n_data=0;
-    fp=fopen(cmd->fnamePS,"r");   // linear P(k) table
-    
-    if (NULL == fp) {
-        printf("\n\nlinear power spectrum can't be opened \n\n");
-    }
-    
-    if(fp!=NULL){   // input: k[h/Mpc]   P(k)[(Mpc/h)^3]
-        while(fscanf(fp, "%lf %lf", &gd->k_data[gd->n_data], &gd->pkz0_data[gd->n_data])!=EOF){
-            gd->n_data++;
-            if(gd->n_data>n_data_max) printf("n_data_max should be larger than the number of data lines \n");
+
+    fp = fopen(cmd->fnamePS, "r");
+
+    if (fp == NULL && cmd->fnamePS[0] != '/') {
+        char fallback[MAXLENGTHOFFILES];
+
+        int nwrite = snprintf(fallback, sizeof(fallback),
+                              "%s/tests/%s", __WLCFDIR__, cmd->fnamePS);
+
+        if (nwrite >= 0 && (size_t)nwrite < sizeof(fallback)) {
+            fp = fopen(fallback, "r");
         }
-        fclose(fp);
     }
+
+    if (fp == NULL) {
+        COSMO_FAIL(cmd,
+                   "\n%s: linear power spectrum can't be opened (%s)\n\n",
+                   routineName, cmd->fnamePS);
+    }
+
+    //B input: k[h/Mpc] P(k)[(Mpc/h)^3]
+    int line;
+        while ((line = fscanf(fp, "%lf %lf", &k_data, &pkz0_data)) != EOF) {
+            if (line != 2) {
+                fclose(fp);
+                COSMO_FAIL(cmd,
+            "%s: linear power spectrum file must have two columns of values... exiting\n\n",
+                           routineName);
+            }
+
+            if (gd->n_data >= n_data_max) {
+                fclose(fp);
+                COSMO_FAIL(cmd,
+            "%s: n_data_max should be larger than the number of data lines\n",
+                routineName);
+
+            }
+
+            gd->k_data[gd->n_data] = k_data;
+            gd->pkz0_data[gd->n_data] = pkz0_data;
+            gd->n_data++;
+        }
+        
+        fclose(fp);
+
+    if (gd->n_data < 2)
+        COSMO_FAIL(cmd,
+        "\n%s: LPS file must have at least two rows of values... exiting\n\n",
+        routineName);
+
+    for (int i=0; i<gd->n_data; i++) {
+        if (!isfinite(gd->k_data[i]))
+            COSMO_FAIL(cmd,
+                "\n%s: LPS file must have finite k values... exiting\n\n",
+                routineName);
+        if (!isfinite(gd->pkz0_data[i]))
+            COSMO_FAIL(cmd,
+                "\n%s: LPS file must have finite pkz0 values... exiting\n\n",
+                routineName);
+        if (gd->k_data[i] <= 0.)
+            COSMO_FAIL(cmd,
+                "\n%s: LPS file must have k values positive... exiting\n\n",
+                routineName);
+        if (gd->pkz0_data[i] <= 0.)
+            COSMO_FAIL(cmd,
+                "\n%s: LPS file must have positive pkz0 values... exiting\n\n",
+                routineName);
+    }
+
+    for (int i=0; i<gd->n_data-1; i++) {
+        if (gd->k_data[i] >= gd->k_data[i+1])
+        COSMO_FAIL(cmd,
+        "\n%s: LPS file must have k values in ascending order... exiting\n\n",
+        routineName);
+    }
+
+    const double k_required_min = 0.001;
+    const double k_required_max = 8.0;
+
+    if (gd->k_data[0] > k_required_min ||
+        gd->k_data[gd->n_data - 1] < k_required_max) {
+        COSMO_FAIL(cmd,
+            "\n%s: LPS file k range [%g, %g] does not cover required range [%g, %g]\n\n",
+            routineName,
+            gd->k_data[0], gd->k_data[gd->n_data - 1],
+            k_required_min, k_required_max);
+    }
+
+    //E
 
     return SUCCESS;
 }
 
 
-/* 
-Linear interpolation routine:
-
-*/
-double interpolation1(double x, double xT[], double yT[], int n_data)   // interpolation order 1
+// interpolation order 1
+double interpolation1(double x, double xT[], double yT[], int n_data)
 {
   int j,j1,j2,jm;
   double f;
-
-  if(x<xT[0]) return 0.;
-  if(x>xT[n_data-1]) return 0.;
   
+    if (n_data < 2) return 0.;
+    if (x < xT[0]) return 0.;
+    if (x > xT[n_data-1]) return 0.;
+    if (x == xT[0]) return yT[0];
+    if (x == xT[n_data-1]) return yT[n_data-1];
+    
   j1=0, j2=n_data-1, jm=(j1+j2)/2;
   for(;;){
     if(x>xT[jm]) j1=jm;
@@ -469,17 +1175,18 @@ double interpolation1(double x, double xT[], double yT[], int n_data)   // inter
   return f;
 }
 
-/* 
-Logarithmic interpolation routine:
-*/
-double interpolationlog(double x, double xT[], double yT[], int n_data)   // interpolation in log space
+// interpolation in log space
+double interpolationlog(double x, double xT[], double yT[], int n_data)
 {
   int j,j1,j2,jm;
   double f;
 
-  if(x<xT[0]) return 0.;
-  if(x>xT[n_data-1]) return 0.;
-  
+    if (n_data < 2) return 0.;
+    if (x < xT[0]) return 0.;
+    if (x > xT[n_data-1]) return 0.;
+    if (x == xT[0]) return yT[0];
+    if (x == xT[n_data-1]) return yT[n_data-1];
+    
   j1=0, j2=n_data-1, jm=(j1+j2)/2;
   for(;;){
     if(x>xT[jm]) j1=jm;
@@ -497,88 +1204,167 @@ double interpolationlog(double x, double xT[], double yT[], int n_data)   // int
 }
 
 //E
-//B Write
 
-/* 
-Output writing routine:
-*/
+
+//B Write
 int write(struct cmdline_data* cmd, struct  global_data* gd)
 {
-    double elli, ellj;
+    string routineName = "write";
     char int_str[20];
-    char str[100];
+    char str[MAXLENGTHOFFILES];
     
-    for (int m=0; m<cmd->mMax+1; m++){
+    //B initial checking
+    if (cmd == NULL || gd == NULL)
+        return FAILURE;
+
+    if (cmd->mMax < 0 || cmd->mMax == INT_MAX)
+        COSMO_FAIL(cmd, "%s: invalid mMax = %d\n", routineName, cmd->mMax);
+
+    if (iv.Nell < 1)
+        COSMO_FAIL(cmd, "%s: invalid Nell = %d\n", routineName, iv.Nell);
+
+    if (cmd->rootDir == NULL || cmd->prefix == NULL)
+        COSMO_FAIL(cmd, "%s: output path strings are not initialized\n",
+                   routineName);
+
+    if (iv.ellT == NULL || iv.BmVectorsp == NULL)
+        COSMO_FAIL(cmd, "%s: output tables are not allocated\n", routineName);
+
+    for (int i = 0; i < iv.Nell; i++) {
+        if (!isfinite(iv.ellT[i]) || iv.ellT[i] <= 0.0)
+            COSMO_FAIL(cmd, "%s: invalid ellT[%d]=%g\n",
+                       routineName, i, iv.ellT[i]);
+
+        if (i > 0 && iv.ellT[i] <= iv.ellT[i - 1])
+            COSMO_FAIL(cmd, "%s: ell grid must be increasing at i=%d: ell[i-1]=%g ell[i]=%g\n",
+                       routineName, i, iv.ellT[i - 1], iv.ellT[i]);
+    }
+
+    for (int m = 0; m <= cmd->mMax; m++) {
+        if (iv.BmVectorsp[m] == NULL)
+            COSMO_FAIL(cmd, "%s: iv.BmVectorsp[%d] is not allocated\n",
+                       routineName, m);
+    }
+    //E
+    
+    for (int m=0; m<cmd->mMax+1; m++) {
         FILE *fp;
-        sprintf(int_str, "%d", m);
-        sprintf(str,"%s/%sBmells_%s.txt",cmd->path_Bells,cmd->prefix,int_str);
-        sprintf(int_str, "%d", m);
-        fp = fopen (str, "w+");
+        int nint = snprintf(int_str, sizeof(int_str), "%d", m);
+        if (nint < 0 || (size_t)nint >= sizeof(int_str))
+            COSMO_FAIL(cmd, "%s: moment index string too long\n", routineName);
         
-        for(int i=0; i<iv.Nell ; i++){
-            for(int j=0; j<iv.Nell ; j++){
-                fprintf(fp, "%15e ", iv.BmVectorsp[m][i*iv.Nell + j]);
-                if(j==iv.Nell-1 && i!=iv.Nell-1) fprintf(fp, " \n");
+        int nwrite = snprintf(str, sizeof(str), "%s/%sBmells_%s.txt",
+                              cmd->rootDir, cmd->prefix, int_str);
+        if (nwrite < 0 || (size_t)nwrite >= sizeof(str))
+            COSMO_FAIL(cmd, "%s: Bmells output path too long\n", routineName);
+        
+        fp = fopen(str, "w+");
+        if (fp == NULL)
+            COSMO_FAIL(cmd, "%s: cannot open output file %s\n",
+                       routineName, str);
+
+        for (int i = 0; i < iv.Nell; i++) {
+            for (int j = 0; j < iv.Nell; j++) {
+                if (fprintf(fp, "%15e ", iv.BmVectorsp[m][i*iv.Nell + j]) < 0) {
+                    fclose(fp);
+                    COSMO_FAIL(cmd, "%s: write failed for %s\n", routineName, str);
+                }
+                if (j == iv.Nell-1 && i != iv.Nell-1) {
+                    if (fprintf(fp, " \n") < 0) {
+                        fclose(fp);
+                        COSMO_FAIL(cmd, "%s: write failed for %s\n", routineName, str);
+                    }
+                }
             }
         }
-        fclose (fp);
+        if (close_checked(&fp, cmd, routineName, str) == FAILURE)
+            return FAILURE;
     }
-        
-    
+
     FILE *fp2;
-    sprintf(str,"%s/%sellArray.txt",cmd->path_Bells,cmd->prefix);
+    int nwrite = snprintf(str, sizeof(str),
+                          "%s/%sellArray.txt",cmd->rootDir,cmd->prefix);
+    if (nwrite < 0 || (size_t)nwrite >= sizeof(str))
+        COSMO_FAIL(cmd, "%s: ellArray output path too long\n",
+                   routineName);
     fp2 = fopen (str, "w+");
-    for(int i=0; i<iv.Nell ; i++){
-        fprintf(fp2,"%15e\n", iv.ellT[i]);
+    if (fp2 == NULL)
+        COSMO_FAIL(cmd, "%s: cannot open output file %s\n",
+                   routineName, str);
+    
+    for (int i = 0; i < iv.Nell; i++) {
+        if (fprintf(fp2, "%15e\n", iv.ellT[i]) < 0) {
+            fclose(fp2);
+            COSMO_FAIL(cmd, "%s: write failed for %s\n", routineName, str);
+        }
     }
-    fclose (fp2);
+    
+    if (close_checked(&fp2, cmd, routineName, str) == FAILURE)
+        return FAILURE;
         
     FILE *fp3;
-    sprintf(str,"%s/%sinfo.txt",cmd->path_Bells,cmd->prefix);
+    nwrite = snprintf(str, sizeof(str),
+                          "%s/%sinfo.txt",cmd->rootDir,cmd->prefix);
+    if (nwrite < 0 || (size_t)nwrite >= sizeof(str))
+        COSMO_FAIL(cmd, "%s: info output path too long\n",
+                   routineName);
     fp3 = fopen (str, "w+");
-    fprintf(fp3, "Cosmological Parameters: \n");
-    fprintf(fp3, "    Omega_m = %f\n",cmd->Omm);
-    fprintf(fp3, "         ns = %f\n",cmd->ns);
-    fprintf(fp3, "\n");
-    fprintf(fp3, "Computing Bm(ell1,ell2) for %d x %d array  \n",
-            iv.Nell, iv.Nell);
-    fprintf(fp3, "    ellmin = %f, ellmax = %f  \n",
-            iv.ellmin, iv.ellmax);
-    fprintf(fp3, "    Number of moments = %d\n", cmd->mMax+1);
-    fprintf(fp3, "    Quadrature chi steps= %d\n", iv.chiQuadSteps);
-    fclose (fp3);
+    if (fp3 == NULL)
+        COSMO_FAIL(cmd, "%s: cannot open output file %s\n",
+                   routineName, str);
 
-    if (cmd->writevectors ==1){
-    for (int m=0; m<cmd->mMax+1; m++){
-        FILE *fp;
-        sprintf(int_str, "%d", m);
-        sprintf(str,"%s/%sBmellsVector_%s.txt",cmd->path_Bells,cmd->prefix,int_str);
-        sprintf(int_str, "%d", m);
-        fp = fopen (str, "w+");
-        
-        for(int ij=0; ij<iv.Nell*iv.Nell ; ij++){
-            fprintf(fp, "%e \n", iv.BmVectorsp[m][ij]);
-        }
-        fclose (fp);
+    if (fprintf(fp3, "Cosmological Parameters: \n") < 0 ||
+        fprintf(fp3, "    Omega_m = %f\n", cmd->Omm) < 0 ||
+        fprintf(fp3, "         ns = %f\n", cmd->ns) < 0 ||
+        fprintf(fp3, "\n") < 0 ||
+        fprintf(fp3, "Computing Bm(ell1,ell2) for %d x %d array  \n",
+                iv.Nell, iv.Nell) < 0 ||
+        fprintf(fp3, "    ellmin = %f, ellmax = %f  \n",
+                iv.ellmin, iv.ellmax) < 0 ||
+        fprintf(fp3, "    Number of moments = %d\n", cmd->mMax + 1) < 0 ||
+        fprintf(fp3, "    Quadrature chi steps= %d\n", iv.chiQuadSteps) < 0) {
+        fclose(fp3);
+        COSMO_FAIL(cmd, "%s: write failed for %s\n", routineName, str);
     }
+    
+    if (close_checked(&fp3, cmd, routineName, str) == FAILURE)
+        return FAILURE;
+
+    //B
+    size_t total = (size_t)iv.Nell * (size_t)iv.Nell;
+    //E
+    
+    if (cmd->writevectors ==1) {
+        for (int m=0; m<cmd->mMax+1; m++) {
+            FILE *fp;
+            int nint = snprintf(int_str, sizeof(int_str), "%d", m);
+            if (nint < 0 || (size_t)nint >= sizeof(int_str))
+                COSMO_FAIL(cmd, "%s: moment index string too long\n", routineName);
+            
+            
+            int nwrite = snprintf(str, sizeof(str), "%s/%sBmellsVector_%s.txt",
+                                  cmd->rootDir,cmd->prefix,int_str);
+            if (nwrite < 0 || (size_t)nwrite >= sizeof(str))
+                COSMO_FAIL(cmd, "%s: Bmells output path too long\n",
+                           routineName);
+            fp = fopen(str, "w+");
+            if (fp == NULL)
+                COSMO_FAIL(cmd, "%s: cannot open output file %s\n",
+                           routineName, str);
+
+            for (size_t ij = 0; ij < total; ij++) {
+                if (fprintf(fp, "%e \n", iv.BmVectorsp[m][ij]) < 0) {
+                    fclose(fp);
+                    COSMO_FAIL(cmd, "%s: write failed for %s\n", routineName, str);
+                }
+            }
+            
+            if (close_checked(&fp, cmd, routineName, str) == FAILURE)
+                return FAILURE;
+        }
     }
 
     return SUCCESS;
 }
-
 //E
 
-
-//B free variables
-
-//~ void free_variables(void)
-//~ {
-        //~ for (int m=0; m<cmd.mMax+1; m++){
-            //~ free(iv.BmVectorsp[m]);
-            //~ free(iv.BmVectors [m]);
-        //~ }
-        //~ free(iv.BmVectorsp);
-        //~ free(iv.BmVectors );
-//~ }
-
-//E

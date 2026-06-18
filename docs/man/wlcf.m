@@ -143,9 +143,6 @@ not exist, it will be created.
 .IP "\fBprefix\fR" 12
 [a: pre] Prefix used for output file names.
 
-.IP "\fBpath_Bells\fR" 12
-[a: bellout] Directory where angular correlation function outputs are written.
-
 .IP "\fBwritevectors\fR" 12
 If true, intermediate vectors are written to output files.
 
@@ -156,9 +153,6 @@ If true, intermediate vectors are written to output files.
 
 .IP "\fBverbose_log\fR" 12
 [a: verblog] Controls the amount of information written to the log file.
-
-.IP "\fBchatty\fR" 12
-Additional verbosity level for internal messages.
 
 .IP "\fBnumberThreads\fR" 12
 [a: nthreads] Number of OpenMP threads used during execution. OpenMP must be

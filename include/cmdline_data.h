@@ -5,6 +5,7 @@
  Purpose: Definitions of global variables and parameters
  Language: C
  Use: '#include "cmdline_data.h"
+ Major revisions:
  ==============================================================================*/
 //        1          2          3          4        ^ 5          6          7
 
@@ -19,9 +20,8 @@
 #include "common_defs.h"
 
 struct cmdline_data{
-    string prefix;
-    double z; //Evaluation redshift
-// Background cosmology:
+    double z;                                       //Evaluation redshift
+    //B Background cosmology:
     double Omm;
     double ns;
     double Omb;
@@ -31,45 +31,56 @@ struct cmdline_data{
     double sigma8;
     double Omnu;
     double Omw;
-// k table
+    //E
+
+    //B k table
+    string prefix;
     string fnamePS;
-    string path_Bells;
     double kmin;
     double kmax;
     int Nk;
+    //E
           
-    double zbin;  //
+    double zbin;
 
-    int chiQuadSteps; // For trapezoidal integration
-    int GLpoints; // For Gaussian Legendre integration
-    int mMax; // Bm moments upto mMax
+    int chiQuadSteps;                               // For trapezoidal integration
+    int GLpoints;                                   // Gaussian Legendre quad
+    int mMax;                                       // Bm moments upto mMax
     int Nell;
     double ellmin,ellmax;
-    int tree_level, writevectors;
-    
-    int chatty; // =0,1,2.
-    
+    int tree_level;
+    bool writevectors;
+
     int Wg;
     string fWgchi;
     
-    // Output parameters
+    //B Output parameters
     string rootDir;
     //E
 
     //B Miscellaneous parameters
-    string preScript;
-    string posScript;
     short verbose;
     short verbose_log;
-//#ifdef OPENMPCODE
     int numthreads;
-//#endif
     string options;
     //E
 
     string version;
 
     string paramfile;
+
+//B socket:
+#ifdef ADDONS
+#include "cmdline_data_include.h"
+#endif
+//E
+
+//B make this correction in setup.py
+//      so cwlcfpy.pxd.in produce it
+#ifndef CLASSLIB
+    ErrorMsg error_message;
+#endif
+//E
 
 };
 

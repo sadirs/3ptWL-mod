@@ -62,7 +62,6 @@ struct cmdline_data{
     double Omw;
 // k table
     string fnamePS;
-    string path_Bells;
     double kmin;
     double kmax;
     int Nk;
@@ -75,8 +74,6 @@ struct cmdline_data{
     int Nell;
     double ellmin,ellmax;
     int tree_level, writevectors;
-    
-    int chatty; // =0,1,2.
     
     int Wg;
     string fWgchi;
@@ -146,7 +143,6 @@ struct global_data{
     bool rootDirFlagFree;
     bool fWgchiFlag;
     bool optionsFlag;
-    bool path_BellsFlag;
     bool prefixFlag;
     bool fnamePSFlag;
 

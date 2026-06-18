@@ -1,5 +1,5 @@
 /*==============================================================================
- HEADER: protodefs.h				[wlcf]
+ HEADER: protodefs.h				[cTreeBalls]
  Written by: Mario A. Rodriguez-Meza
  Starting date: april 2023
  Purpose: Definitions of global prototypes

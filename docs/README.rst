@@ -1,82 +1,74 @@
 3ptWL-mod: Weak-Lensing Three-Point Modeling
 --------------------------------------------
 
-3ptWL-mod is a C code for computing weak-lensing correlation-function models.
-The current workflow focuses on the three-point correlation function (3PCF) of
-the weak-lensing convergence field using perturbation-theory, EFT, and
-Takahashi/Halo-model inspired branches.
+Project Team
+~~~~~~~~~~~~
 
-The project was previously published as ``wlcf``.  The executable, static
-library, Python extension, environment variables, and public APIs retain their
-existing compatibility names.
+:Scientific authors: Alejandro Aviles, Juan Carlos Hidalgo, Eladio Moreno,
+   Gustavo Niz, Mario A. Rodriguez-Meza, Sofía Samario, and collaborators.
+:Emulator workflow: Sadi Ramirez and contributors.
+:Repository: `Source code and issue tracking`_
 
-For source code and releases, see:
+Scientific Scope
+~~~~~~~~~~~~~~~~
 
-https://github.com/sadirs/3ptWL-mod
+3ptWL-mod is a C code for modeling multipoles of the three-point correlation
+function of projected scalar fields on the sphere.  Its main application is
+the weak-lensing convergence field.  The numerical pipeline projects a matter
+bispectrum into angular multipoles and evaluates
+:math:`\zeta_m(\theta_1,\theta_2)` on a configurable angular grid.
 
-The associated paper is available at:
+The available model branches include standard perturbation theory, a
+power-spectrum-squared approximation, an effective-field-theory prescription,
+and a Takahashi/Halo-model inspired branch.  See :doc:`3pcf` for the scientific
+conventions and :doc:`params` for the run-time controls.
 
-https://arxiv.org/abs/2408.16847
+Public Interfaces
+~~~~~~~~~~~~~~~~~
 
-Quick Start
------------
+The repository provides the ``wlcf`` command-line executable,
+``libwlcf.a`` static library, and ``wlcfpy`` Python extension.  These names are
+retained from the original ``wlcf`` project so existing analysis scripts can
+continue to use the public API while the repository name describes its
+scientific purpose more directly.
 
-Clone and build:
+All run products are written beneath ``rootDir`` and use ``prefix`` where
+applicable.  Typical products include the angular grid, 3PCF multipoles,
+bispectrum multipoles, background tables, and a complete used-parameter file.
 
-.. code-block:: bash
+Related Projects
+~~~~~~~~~~~~~~~~
 
-    git clone https://github.com/sadirs/3ptWL-mod.git
-    cd 3ptWL-mod
-    make clean
-    make all
+* `3ptWL-cov`_ computes Gaussian weak-lensing three-point covariance terms.
+* The model implemented here accompanies the projected-scalar-field 3PCF work
+  described in `arXiv:2408.16847`_.
 
-Run the default example:
+Installing and Getting Started
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. code-block:: bash
+Read :doc:`installation` for dependencies and build configuration, then follow
+:doc:`quickstart` for a reduced validation run.  The :doc:`tutorials/index`
+section covers the full Python and neural-network workflows.
 
-    cd tests
-    ../wlcf
+Documentation Builds
+~~~~~~~~~~~~~~~~~~~~
 
-This creates run outputs such as:
-
-* ``Output/`` for logs and used-parameter files.
-* ``Bell_outputs/`` for files such as ``zetam*``, ``Bmells_*``, and ``Bnk_*``.
-
-Documentation
--------------
-
-Build the Sphinx documentation with:
-
-.. code-block:: bash
-
-    python -m pip install -r docs/requirements.txt
-    make -C docs html
-
-Open ``docs/_build/html/index.html`` after the build completes.
-
-The Unix manual page source is available at ``docs/man/wlcf.1`` and can be
-viewed with:
+Build the HTML documentation with:
 
 .. code-block:: bash
 
-    man ./docs/man/wlcf.1
+   python3 -m pip install -r docs/requirements.txt
+   make -C docs html
+
+The hosted documentation is available on `Read the Docs`_.
 
 License
--------
+~~~~~~~
 
-3ptWL-mod is distributed under the MIT license. If you use this program in
-research work that results in publications, please cite:
+3ptWL-mod is distributed under the MIT license.  See :doc:`citing` for the
+scientific references and acknowledgement guidance.
 
-`Abraham Arvizu et al., JCAP 12 (2024) 049; arXiv:2408.16847 <https://arxiv.org/abs/2408.16847>`_
-
-Acknowledgements
-----------------
-
-3ptWL-mod uses or builds on ideas, routines, or conventions from:
-
-* `FFTLog <https://github.com/xfangcosmo/2DFFTLog>`_
-* `The BiHaloFit model of Takahashi <https://cosmo.phys.hirosaki-u.ac.jp/takahasi/codes_e.htm>`_
-* `Zeno <https://home.ifa.hawaii.edu/users/barnes/zeno/index.html>`_
-* `Numerical Recipes <https://numerical.recipes/>`_
-* `GSL <https://www.gnu.org/software/gsl/>`_
-* `CLASS <https://github.com/lesgourg/class_public>`_
+.. _Source code and issue tracking: https://github.com/sadirs/3ptWL-mod
+.. _3ptWL-cov: https://github.com/sadirs/3ptWL-cov
+.. _arXiv:2408.16847: https://arxiv.org/abs/2408.16847
+.. _Read the Docs: https://3ptwl-mod.readthedocs.io/en/latest/

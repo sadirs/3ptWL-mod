@@ -1,15 +1,5 @@
-//==========================================================================
+// ============================================================================
 //        1          2          3          4        ^ 5          6          7
-
-/*
-============================================================================
-NAME: fft.c                                  [wlcf]
-Written by: S. Aviles et al.
-Starting date: February 2026
-Purpose: Fast Fourier Transform and sine transform routines
-Language: C
-*/
-//==========================================================================
 
 // BEGIN:: FFT
 #include <math.h>
@@ -20,10 +10,6 @@ void realft(float data[], unsigned long n, int isign);
 void drealft(double data[], unsigned long n, int isign);
 void dfour1(double data[], unsigned long nn, int isign);
 
-
-/*
-Single-precision sine transform routine:
-*/
 void sinft(float y[], int n)
 {
     void realft(float data[], unsigned long n, int isign);
@@ -53,9 +39,7 @@ void sinft(float y[], int n)
         y[j+1]=sum;
     }
 }
-/*
-Single-precision sine transform routine:
-*/
+
 void dsinft(double y[], int n)
 {
     void drealft(double data[], unsigned long n, int isign);
@@ -86,10 +70,7 @@ void dsinft(double y[], int n)
     }
 }
 
-/*
-Single-precision real FFT routine:
 
-*/
 void realft(float data[], unsigned long n, int isign)
 {
     void four1(float data[], unsigned long nn, int isign);
@@ -134,9 +115,7 @@ void realft(float data[], unsigned long n, int isign)
     }
 }
 
-/*
-Single-precision real FFT routine:
-*/
+
 void drealft(double data[], unsigned long n, int isign)
 {
     void dfour1(double data[], unsigned long nn, int isign);
@@ -182,10 +161,7 @@ void drealft(double data[], unsigned long n, int isign)
 }
 
 #define SWAP(a,b) tempr=(a);(a)=(b);(b)=tempr
-/*
-Double-precision real FFT routine:
 
-*/
 void four1(float data[], unsigned long nn, int isign)
 {
     unsigned long n,mmax,m,j,istep,i;
@@ -235,10 +211,6 @@ void four1(float data[], unsigned long nn, int isign)
 
 #define SWAP(a,b) tempr=(a);(a)=(b);(b)=tempr
 
-/*
-Double-precision complex FFT routine:
-
-*/
 void dfour1(double data[], unsigned long nn, int isign)
 {
     unsigned long n,mmax,m,j,istep,i;

@@ -1,56 +1,33 @@
-//==========================================================================
-//        1          2          3          4        ^ 5          6          7
-
-/*
-============================================================================
-NAME: common.c                               [wlcf]
-Written by: S. Aviles et al.
-Starting date: February 2026
-Purpose: Common utility and protection routines
-Language: C
-============================================================================
-*/
-
 #include "common.h"
 
-
-/*
-Protected sprintf routine:
-
-This routine formats a string safely into the destination buffer
-using vsnprintf.
-
-*/
-void class_protect_sprintf(char* dest, char* tpl,...) {
+void class_protect_sprintf(char *dest, size_t dest_size, const char *tpl, ...) {
   va_list args;
-  va_start(args,tpl);
-  vsnprintf(dest, 2048,tpl,args);
+
+  if (dest == NULL || dest_size == 0)
+    return;
+
+  va_start(args, tpl);
+  vsnprintf(dest, dest_size, tpl, args);
   va_end(args);
+
+  dest[dest_size - 1] = '\0';
 }
 
-void class_protect_fprintf(FILE* stream, char* tpl,...) {
+void class_protect_fprintf(FILE *stream, const char *tpl, ...) {
   va_list args;
   char dest[6000];
-  va_start(args,tpl);
-  vsnprintf(dest, 2048,tpl,args);
+
+  va_start(args, tpl);
+  vsnprintf(dest, sizeof(dest), tpl, args);
   va_end(args);
-  fprintf(stream,"%s",dest);
+
+  fprintf(stream, "%s", dest);
 }
-/*
-Protected memcpy routine:
 
-This routine copies a memory block from one location to another.
-
-*/
 void* class_protect_memcpy(void* dest, void* from, size_t sz) {
   return memcpy(dest, from,sz);
 }
-/*
-Title-counting routine:
 
-This routine counts the number of tab-separated titles in a string.
-
-*/
 int get_number_of_titles(char * titlestring){
   int i;
   int number_of_titles=0;
@@ -68,12 +45,7 @@ int get_number_of_titles(char * titlestring){
  * @param fname  Input: File name
  * @return boolean
  */
-/*
-File-existence checking routine:
 
-This routine checks whether a file exists and can be opened for reading.
-
-*/
 int file_exists(const char *fname){
   FILE *file = fopen(fname, "r");
   if (file != NULL){
@@ -92,13 +64,7 @@ int file_exists(const char *fname){
  * @param b Input: second number
  * @return -1, 1 or 0
  */
-/*
-Double-comparison routine:
 
-This routine compares two double values and is intended for use
-with sorting functions such as qsort.
-
-*/
 int compare_doubles(const void *a,
                     const void *b){
   double *x = (double *) a;
@@ -121,13 +87,7 @@ int compare_doubles(const void *a,
  * @param beginchar  Input: the character by which the string begins or not
  * @return boolean
  */
-/*
-String-begin test routine:
 
-This routine detects whether a string begins with a given character,
-ignoring leading whitespaces.
-
-*/
 int string_begins_with(char* thestring, char beginchar){
 
   /** Define temporary variables */
@@ -147,3 +107,4 @@ int string_begins_with(char* thestring, char beginchar){
 
   return result;
 }
+

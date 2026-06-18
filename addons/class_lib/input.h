@@ -2,7 +2,7 @@
 #ifndef __INPUT__
 #define __INPUT__
 
-#include "global.h"
+#include "globaldefs.h"
 #include "common.h"
 #include "parser.h"
 
@@ -31,16 +31,20 @@
     }                                                                           \
   } while(0);
 
-#define class_read_string(name,destination)                                     \
+
+//B not used... but keep it for possible use in the future...
+#define class_read_string(name,destination,destination_size)                    \
   do {                                                                          \
-    char string_temp[_ARGUMENT_LENGTH_MAX_]; int flag_temp;                \
+    char string_temp[_ARGUMENT_LENGTH_MAX_]; int flag_temp;                     \
     class_call(parser_read_string(pfc,name,&string_temp,&flag_temp,errmsg),     \
                errmsg,                                                          \
                errmsg);                                                         \
-    if (flag_temp == TRUE){                                                   \
-      strcpy(destination,string_temp);                                          \
+    if (flag_temp == TRUE){                                                     \
+      if (copy_checked(destination, destination_size, string_temp, name) != 0)   \
+        return FAILURE;                                                         \
     }                                                                           \
   } while(0);
+//E
 
 #define class_read_flag(name,destination)                                       \
   do {                                                                          \
@@ -235,8 +239,6 @@ int input_read_parameters_general(struct cmdline_data *cmd,
                                     ErrorMsg errmsg);
 
   int input_default_params(struct cmdline_data *);
-
-//  int tpcf_version( char * version);
 
 #ifdef __cplusplus
 }

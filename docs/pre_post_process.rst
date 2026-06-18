@@ -1,40 +1,29 @@
-Pre/Post Processing
-===================
-
-This section summarizes the work usually done before and after a ``wlcf`` run.
+Preparation and Post-Processing
+===============================
 
 Pre-Processing
 --------------
 
-Prepare all inputs before running the executable or Python wrapper:
+Before a run:
 
-* Generate a linear matter power spectrum with CAMB, CLASS, or another
-  trusted source.
-* Save the power spectrum as a plain numeric two-column file accepted by
-  ``fnamePS``/``ps``.
-* If ``Wg=1``, prepare a plain numeric two-column weak-lensing kernel file for
-  ``fWgchi``.
-* Use cosmological parameters consistent with the input tables.
-* Keep relative paths consistent with the working directory from which
-  ``wlcf`` is launched.
-
-The accuracy of the final correlation functions depends strongly on the
-quality, units, redshift, and cosmology of the input power spectrum and kernel.
+* generate a linear matter power spectrum with consistent cosmology, redshift,
+  normalization, and units;
+* prepare a two-column weak-lensing kernel when ``Wg=1``;
+* choose a unique ``rootDir`` and ``prefix``;
+* begin with reduced numerical controls and establish convergence;
+* archive the exact input tables and configuration.
 
 Post-Processing
 ---------------
 
-Post-processing usually starts from files in ``path_Bells``:
+Read the angular grid from ``<rootDir>/<prefix>theta_array.txt`` and the 3PCF
+multipoles from ``<rootDir>/<prefix>zetam<m>.txt``.  Related bispectrum and
+background products use the same directory and prefix.
 
-* ``zetam*.txt`` for 3PCF multipoles.
-* ``theta_array.txt`` for the angular grid.
-* ``Bmells_*.txt`` for projected bispectrum multipoles.
-* ``Bnk_*.txt`` and ``kArray.txt`` for Fourier-space bispectrum tables.
-* ``background_functions.txt`` for sampled background quantities.
-* ``info.txt`` for a compact run summary.
+Typical tasks include plotting multipoles, checking matrix shapes and finite
+values, comparing model branches, measuring numerical convergence, and
+assembling training vectors for the optional emulator.  Always retain the
+``*-usedvalues`` file and ``<prefix>info.txt`` with derived products.
 
-Typical post-processing tasks include plotting multipoles, comparing model
-branches, checking convergence with ``Nell`` or ``chiQuadSteps``, and combining
-outputs from parameter scans.
-
-For exact file naming and column expectations, see :doc:`io_formats`.
+See :doc:`io_formats` for exact names and :doc:`tutorials/python-3pcf` for a
+minimal plotting example.

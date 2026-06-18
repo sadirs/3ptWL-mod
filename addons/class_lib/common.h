@@ -1,6 +1,8 @@
 //=============================================================================
 //        1          2          3          4        ^ 5          6          7
 
+#include "globaldefs.h"
+
 #include "stdio.h"
 #include "stdlib.h"
 #include "math.h"
@@ -35,7 +37,9 @@
 typedef char ErrorMsg[_ERRORMSGSIZE_]; /**< Generic error messages (there is such a field in each structure) */
 
 #define _FILENAMESIZE_ 256 /**< size of the string read in each line of the file (extra characters not taken into account) */
-typedef char FileName[_FILENAMESIZE_];
+#define _BASEPATHSIZE_ 1000 /**< allowed size of the base path */
+//typedef char FileName[_FILENAMESIZE_];
+typedef char FileName[_FILENAMESIZE_+_BASEPATHSIZE_];
 
 #define _SUFFIXNAMESIZE_ 4 /**< maximum size of the short string appended to file names to account for initial conditions, etc. */
 
@@ -73,8 +77,8 @@ typedef char FileName[_FILENAMESIZE_];
 
 #define _DELIMITER_ "\t" /**< character used for delimiting titles in the title strings */
 
-#ifndef __CLASSDIR__
-#define __CLASSDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */
+#ifndef __WLCFDIR__
+#define __WLCFDIR__ "." /**< The directory of CLASS. This is set to the absolute path to the CLASS directory so this is just a failsafe. */
 #endif
 
 #define MIN(a,b) (((a)<(b)) ? (a) : (b) ) /**< the usual "min" function */
@@ -86,8 +90,8 @@ typedef char FileName[_FILENAMESIZE_];
 
 /* needed because of weird openmp bug on macosx lion... */
 
-void class_protect_sprintf(char* dest, char* tpl,...);
-void class_protect_fprintf(FILE* dest, char* tpl,...);
+void class_protect_sprintf(char *dest, size_t dest_size, const char *tpl, ...);
+void class_protect_fprintf(FILE *stream, const char *tpl, ...);
 void* class_protect_memcpy(void* dest, void* from, size_t sz);
 
 /* some general functions */
@@ -102,8 +106,9 @@ int string_begins_with(char* thestring, char beginchar);
 
 #define class_build_error_string(dest,tmpl,...) {                               \
   ErrorMsg FMsg;                                                                \
-  class_protect_sprintf(FMsg,tmpl,__VA_ARGS__);                                 \
-  class_protect_sprintf(dest,"%s(L:%d) :%s",__func__,__LINE__,FMsg);            \
+  class_protect_sprintf(FMsg, sizeof(FMsg), tmpl, __VA_ARGS__);                 \
+  class_protect_sprintf(dest, _ERRORMSGSIZE_, "%s(L:%d) :%s",                  \
+                        __func__, __LINE__, FMsg);                              \
 }
 
 // Error reporting macros
@@ -199,9 +204,9 @@ int string_begins_with(char* thestring, char beginchar);
 
 // Testing
 
-#define class_test_message(err_out,extra,args...) {                                 \
-  ErrorMsg Optional_arguments;                                                      \
-  class_protect_sprintf(Optional_arguments,args);                                   \
+#define class_test_message(err_out,extra,args...) {                             \
+  ErrorMsg Optional_arguments;                                                  \
+  class_protect_sprintf(Optional_arguments, sizeof(Optional_arguments), args);   \
   class_build_error_string(err_out,"condition (%s) is true; %s",extra,Optional_arguments); \
 }
 
@@ -235,11 +240,12 @@ int string_begins_with(char* thestring, char beginchar);
 /* macro for returning error message;
    args is a variable list of optional arguments, e.g.: args="x=%d",x
    args cannot be empty, if there is nothing to pass use args="" */
-#define class_stop(error_message_output,args...) {                                      \
-  ErrorMsg Optional_arguments;                                                          \
-  class_protect_sprintf(Optional_arguments,args);                                       \
-  class_build_error_string(error_message_output,"error; %s",Optional_arguments);        \
-  return FAILURE;                                                                       \
+
+#define class_stop(error_message_output,args...) {                              \
+  ErrorMsg Optional_arguments;                                                  \
+  class_protect_sprintf(Optional_arguments, sizeof(Optional_arguments), args);   \
+  class_build_error_string(error_message_output,"error; %s",Optional_arguments);\
+  return FAILURE;                                                               \
 }
 
 // IO
@@ -300,15 +306,24 @@ int string_begins_with(char* thestring, char beginchar);
               "",colnum++,_OUTPUTPRECISION_+6,title);                   \
   }
 
-#define class_store_columntitle(titlestring,                            \
-				title,					\
-				condition){				\
-    if (condition == TRUE){                                           \
-      strcat(titlestring,title);                                        \
-      strcat(titlestring,_DELIMITER_);                                  \
-    }                                                                   \
-  }
-//,_MAXTITLESTRINGLENGTH_-strlen(titlestring)-1);
+#define class_store_columntitle(titlestring, titlestring_size, title, condition)     \
+  do {                                                                              \
+    if ((condition) == TRUE) {                                                      \
+      size_t used_ = strlen(titlestring);                                           \
+      size_t title_len_ = strlen(title);                                            \
+      size_t delimiter_len_ = strlen(_DELIMITER_);                                  \
+                                                                                    \
+      if (used_ < (titlestring_size) &&                                             \
+          title_len_ <= (titlestring_size) - used_ - 1 &&                           \
+          delimiter_len_ <= (titlestring_size) - used_ - title_len_ - 1) {          \
+        memcpy((titlestring) + used_, (title), title_len_);                         \
+        used_ += title_len_;                                                        \
+        memcpy((titlestring) + used_, _DELIMITER_, delimiter_len_);                 \
+        used_ += delimiter_len_;                                                    \
+        (titlestring)[used_] = '\0';                                                \
+      }                                                                             \
+    }                                                                               \
+  } while (0)
 
 #define class_store_double(storage,					\
 			   value,					\

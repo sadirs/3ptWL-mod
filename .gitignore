@@ -3,6 +3,8 @@ build/
 *.o
 *.a
 wlcf
+!addons/addons_include/source/wlcf/
+!addons/addons_include/source/wlcf/*.h
 wlcfpy.egg-info/
 python/wlcfpy.c
 python/build/

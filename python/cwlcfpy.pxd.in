@@ -1,0 +1,141 @@
+# Set of declarations from C to python
+
+from libc.stdio cimport FILE
+from libc.time cimport clock_t
+from libc.stddef cimport size_t
+
+cdef extern from "wlcf.h":
+
+    cdef char[10] _VERSION_
+    ctypedef char FileArg[{{FILEARG_SIZE}}]
+    ctypedef char ErrorMsg[{{ERRORMSG_SIZE}}]
+    ctypedef char FileName[{{FILENAME_SIZE}}]
+
+    size_t sizeof_cmdline_data()
+    size_t sizeof_global_data()
+
+    cdef struct cmdline_data:
+        double z
+        double Omm
+        double ns
+        double Omb
+        double h
+        double w
+        double Omc
+        double sigma8
+        double Omnu
+        double Omw
+        char * prefix
+        char * fnamePS
+        double kmin
+        double kmax
+        int Nk
+        double zbin
+        int chiQuadSteps
+        int GLpoints
+        int mMax
+        int Nell
+        double ellmin
+        double ellmax
+        int tree_level
+        unsigned char writevectors
+        int Wg
+        char * fWgchi
+        char * rootDir
+        short verbose;
+        short verbose_log;
+        int numthreads;
+        char * options;
+        char * version;
+        char * paramfile;
+
+{{CMDLINE_CLASSLIB_FIELDS}}
+{{CMDLINE_COSMOLIB_FIELDS}}
+
+    cdef struct global_data:
+        double cpuinit
+        long cpurealinit
+        double dx
+        int method_int
+        int quadmethod_int
+        char * headline0
+        char * headline1
+        char * headline2
+        char * headline3
+        FILE * outlog
+        char mode[2]
+        char fnamePSPath[{{FNAMEPSPATH_SIZE}}]
+        double k_data[{{N_DATA_MAX}}]
+        double pkz0_data[{{N_DATA_MAX}}]
+
+        int n_data
+        double Dpz0
+        double sigma8
+        double chi_data[{{N_CHI_DATA_MAX}}]
+        double Wg_chi_data[{{N_CHI_DATA_MAX}}]
+
+        int n_chi_data
+        unsigned char startrun_cputime
+        unsigned char cmd_allocated
+        unsigned char gd_allocated
+        unsigned char tables_allocated
+        long bytes_tot
+        unsigned char flagPrint
+        unsigned char rootDirFlag
+        char logfilePath[{{MAXLENGTHOFFILES}}]
+        char tmpDir[{{MAXLENGTHOFFILES}}]
+
+        unsigned char rootDirFlagFree
+        unsigned char fWgchiFlag
+        unsigned char optionsFlag
+        unsigned char prefixFlag
+        unsigned char fnamePSFlag
+
+{{GLOBAL_CLASSLIB_FIELDS}}
+{{GLOBAL_COSMOLIB_FIELDS}}
+        
+    cdef struct file_content:
+        char * filename
+        int size
+        FileArg * name
+        FileArg * value
+        short * read
+
+#B wlcf headers
+    cdef int FAILURE
+    cdef int FALSE
+    cdef int TRUE
+
+    int input_read_from_file(void*, void*, void*, char*)
+    int StartRun_Common(void*, void*);
+    int PrintParameterFile(void*, void*, char*)
+    int StartOutput(void*, void*)
+    
+    int SetNumberThreads(void*)
+    int Initial(void*, void*);
+    int MainLoop(void*, void*);
+    int EndRun(void*, void*);
+
+
+#B PXD functions
+
+#B flags
+#E
+
+#B parameters
+    int get_nthreads(void*, int*)
+#E parameters
+
+#B gd values
+#    int get_integral(void*, double*)
+#E gd values
+
+#B free memory
+    int EndRun_FreeMemory_tables(void*, void*)
+    int EndRun_FreeMemory_cmd(void*, void*)
+    int EndRun_FreeMemory_gd(void*, void*)
+#E
+
+#E PXD functions
+
+#E wlcf headers
