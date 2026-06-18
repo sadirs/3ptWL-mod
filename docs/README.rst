@@ -40,6 +40,8 @@ Related Projects
 ~~~~~~~~~~~~~~~~
 
 * `3ptWL-cov`_ computes Gaussian weak-lensing three-point covariance terms.
+* `cTreeBalls`_ measures two- and three-point correlation functions from point
+  catalogs and scalar fields.
 * The model implemented here accompanies the projected-scalar-field 3PCF work
   described in `arXiv:2408.16847`_.
 
@@ -69,6 +71,7 @@ License
 scientific references and acknowledgement guidance.
 
 .. _Source code and issue tracking: https://github.com/sadirs/3ptWL-mod
-.. _3ptWL-cov: https://github.com/sadirs/3ptWL-cov
+.. _3ptWL-cov: https://3ptwl-cov.readthedocs.io/en/latest/overview.html
+.. _cTreeBalls: https://github.com/rodriguezmeza/cTreeBalls
 .. _arXiv:2408.16847: https://arxiv.org/abs/2408.16847
 .. _Read the Docs: https://3ptwl-mod.readthedocs.io/en/latest/
