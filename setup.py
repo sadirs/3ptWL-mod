@@ -404,10 +404,38 @@ class build_ext(cython_build_ext):
         super().run()
 
 setup(
-    name='wlcfpy',
+    name='3ptWL-mod',
     version=VERSION,
-    description='Python interface to the covariance code wlcf',
-    url='http://github.com/rodriguezmeza/wlcf.git',
+    description='Weak-lensing three-point correlation function modeling',
+    long_description=open(
+        os.path.join(root_folder, "README.md"), encoding="utf-8"
+    ).read(),
+    long_description_content_type='text/markdown',
+    url='https://github.com/sadirs/3ptWL-mod',
+    project_urls={
+        'Documentation': 'https://3ptwl-mod.readthedocs.io/en/latest/',
+        'Source': 'https://github.com/sadirs/3ptWL-mod',
+        'Issues': 'https://github.com/sadirs/3ptWL-mod/issues',
+    },
+    author='3ptWL-mod contributors',
+    license='MIT',
+    python_requires='>=3.8',
+    install_requires=[
+        'numpy>=1.22',
+        'scipy>=1.8',
+    ],
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Science/Research',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: POSIX :: Linux',
+        'Programming Language :: C',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3 :: Only',
+        'Topic :: Scientific/Engineering :: Astronomy',
+        'Topic :: Scientific/Engineering :: Physics',
+    ],
     cmdclass={'build_ext': build_ext},
     ext_modules=[wlcfpy_ext],
+    zip_safe=False,
 )

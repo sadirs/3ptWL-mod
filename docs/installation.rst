@@ -21,10 +21,34 @@ On Debian or Ubuntu, the native dependencies are typically installed with:
 .. code-block:: bash
 
    sudo apt-get update
-   sudo apt-get install build-essential libgsl-dev libfftw3-dev python3-dev
+   sudo apt-get install build-essential libgsl-dev libfftw3-dev python3-dev pkg-config
+
+Install the Python Package
+--------------------------
+
+Install the published source distribution with pip:
+
+.. code-block:: bash
+
+   python3 -m pip install 3ptWL-mod
+
+Pip installs the compiled ``wlcfpy`` extension and its Python dependencies.
+The distribution name is ``3ptWL-mod``, while the import name remains
+``wlcfpy`` for compatibility. Because the extension is compiled locally, the
+native prerequisites above must already be installed.
+
+Verify the installation with:
+
+.. code-block:: bash
+
+   python3 -c "from wlcfpy import wlcf; print(wlcf)"
 
 Clone the Repository
 --------------------
+
+Clone the repository when you also need the ``wlcf`` command-line executable,
+the ``libwlcf.a`` static library, the bundled examples, or an editable source
+checkout:
 
 .. code-block:: bash
 
@@ -62,8 +86,8 @@ be supplied at build time:
       GSL_INCLUDE=/path/to/gsl/include GSL_LIB=/path/to/gsl/lib \
       FFTW3_INCLUDE=/path/to/fftw/include FFTW3_LIB=/path/to/fftw/lib
 
-For the Python extension, ``setup.py`` also recognizes ``GSL_DIR``,
-``FFTW_DIR``, ``WLCF_INCLUDE_DIRS``, and ``WLCF_LIBRARY_DIRS``.
+For the Python extension, ``setup.py`` recognizes ``GSL_INCLUDE``, ``GSL_LIB``,
+``FFTW3_INCLUDE``, and ``FFTW3_LIB``.
 
 Verify the Installation
 -----------------------

@@ -20,10 +20,28 @@ compatibility. The repository name reflects the scientific role of the code.
 
 Documentation: [3ptWL-mod on Read the Docs](https://3ptwl-mod.readthedocs.io/en/latest/)
 
-## Quick start
+## Install the Python package
 
-The native build requires a C compiler, GSL, and FFTW3. Build all public
-interfaces with:
+3ptWL-mod builds a native extension, so install a C compiler, GSL, FFTW3,
+`make`, and the Python headers first. On Debian or Ubuntu:
+
+```bash
+sudo apt-get update
+sudo apt-get install build-essential libgsl-dev libfftw3-dev python3-dev pkg-config
+python3 -m pip install 3ptWL-mod
+```
+
+The distribution is named `3ptWL-mod`; the import remains `wlcfpy` for
+compatibility:
+
+```bash
+python3 -c "from wlcfpy import wlcf; print(wlcf)"
+```
+
+## Build the command-line tools from source
+
+To also build the `wlcf` executable and `libwlcf.a` static library, clone the
+repository and build all public interfaces:
 
 ```bash
 git clone https://github.com/sadirs/3ptWL-mod.git
@@ -46,7 +64,7 @@ where applicable.
 
 ## Python wrapper
 
-After `make all`:
+After installing with pip or running `make all`:
 
 ```python
 from wlcfpy import wlcf

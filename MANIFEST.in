@@ -1,0 +1,17 @@
+include LICENSE
+include README.md
+include pyproject.toml
+include Makefile
+include Makefile_machine
+include Makefile_settings
+include addons/Makefile_addons
+include addons/Makefile_addons_settings
+recursive-include source *.c
+recursive-include main *.c
+recursive-include include *.h
+recursive-include general_lib *.c *.h
+recursive-include getparam *.c *.h
+recursive-include python *.pyx *.pxd *.in
+recursive-include addons/class_lib *.c *.h Makefile_class_lib
+recursive-include addons/pxd *.h Makefile_pxd
+recursive-include addons/addons_include *.h

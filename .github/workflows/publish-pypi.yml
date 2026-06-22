@@ -1,0 +1,50 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgsl-dev libfftw3-dev pkg-config
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build and check the source distribution
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build --sdist
+          python -m twine check dist/*
+      - name: Test installation from the source distribution
+        run: |
+          python -m venv /tmp/3ptwl-test
+          /tmp/3ptwl-test/bin/python -m pip install dist/*.tar.gz
+          cd /tmp
+          /tmp/3ptwl-test/bin/python -c "from wlcfpy import wlcf; print(wlcf)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pypi-dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: pypi-dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

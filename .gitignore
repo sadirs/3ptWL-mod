@@ -1,11 +1,13 @@
 # Build artifacts
 build/
+dist/
 *.o
 *.a
 wlcf
 !addons/addons_include/source/wlcf/
 !addons/addons_include/source/wlcf/*.h
 wlcfpy.egg-info/
+*.egg-info/
 python/wlcfpy.c
 python/build/
 
