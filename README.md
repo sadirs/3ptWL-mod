@@ -90,6 +90,11 @@ model.clean_all()
 
 ## Tutorials and emulator
 
+Run the standalone four-model comparison directly in Google Colab (no
+repository clone required):
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/sadirs/3ptWL-mod/blob/main/examples/3ptWL_mod_four_models_colab.ipynb)
+
 The curated workflows live under `tests/`:
 
 - `example.ipynb` runs the model and visualizes 3PCF multipoles;
