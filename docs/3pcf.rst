@@ -24,21 +24,22 @@ transforms the projected multipoles into configuration space.
 Model Branches
 --------------
 
-``tree_level=1``
+``tree_level=1`` (``SPT``)
    Standard perturbation-theory branch.
 
-``tree_level=2``
+``tree_level=2`` (``Tree``)
    Power-spectrum-squared approximation.
 
-``tree_level=3``
+``tree_level=3`` (``EFT``)
    Effective-field-theory inspired branch.
 
-``tree_level=4``
-   Takahashi/Halo-model inspired branch used by the main notebook examples.
+``tree_level=4`` (``Halo Model``)
+   Takahashi/Halo-model inspired branch.
 
 The branches are different physical approximations, not successive numerical
 accuracy levels.  Compare them only with consistent cosmology, inputs, grids,
-and source kernels.
+and source kernels.  The :doc:`tutorials/colab-four-models` notebook performs
+this controlled comparison for a compact example configuration.
 
 Projection Inputs
 -----------------

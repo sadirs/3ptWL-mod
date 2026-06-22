@@ -62,9 +62,11 @@ Model and Numerical Controls
 ----------------------------
 
 ``tree_level``
-   Bispectrum branch. Alias: ``tlev``. ``1`` selects standard perturbation
-   theory, ``2`` the power-spectrum-squared approximation, ``3`` the EFT
-   branch, and ``4`` the Takahashi/Halo-model inspired branch.
+   Bispectrum branch. Alias: ``tlev``. ``1`` selects SPT (standard
+   perturbation theory), ``2`` Tree (the power-spectrum-squared
+   approximation), ``3`` EFT (the effective-field-theory inspired branch),
+   and ``4`` Halo Model (the Takahashi/Halo-model inspired branch).  These
+   labels match :doc:`tutorials/colab-four-models` and :doc:`3pcf`.
 
 ``zbin``
    Source redshift used in the projected weak-lensing calculation.

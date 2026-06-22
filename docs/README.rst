@@ -49,8 +49,10 @@ Installing and Getting Started
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Read :doc:`installation` for dependencies and build configuration, then follow
-:doc:`quickstart` for a reduced validation run.  The :doc:`tutorials/index`
-section covers the full Python and neural-network workflows.
+:doc:`quickstart` for a reduced validation run.  For a no-clone visual start,
+open the :doc:`tutorials/colab-four-models` notebook.  The
+:doc:`tutorials/index` section covers the full Python and neural-network
+workflows.
 
 Documentation Builds
 ~~~~~~~~~~~~~~~~~~~~

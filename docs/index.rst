@@ -8,12 +8,23 @@ convergence.  The public workflow provides:
 * a compiled C command-line executable, ``wlcf``;
 * a static library, ``libwlcf.a``;
 * a Cython wrapper, ``wlcfpy``;
+* a standalone Google Colab comparison of all four model branches;
 * notebook workflows for 3PCF visualization and neural-network emulation.
 
 The models include perturbation-theory, effective-field-theory, and
 Takahashi/Halo-model inspired bispectrum branches.  Although the repository is
 named 3ptWL-mod, the executable and Python module retain their historical
 ``wlcf`` names for compatibility.
+
+Start in Google Colab
+---------------------
+
+The `standalone four-model notebook`_ installs the published package, fetches
+a versioned example input, and compares SPT, Tree, EFT, and Halo Model without
+requiring a repository clone.  Its shared-scale multipole maps provide the
+quickest visual introduction to the model branches.  See
+:doc:`tutorials/colab-four-models` for the workflow, settings, generated files,
+and convergence guidance.
 
 Basic Usage
 -----------
@@ -63,9 +74,10 @@ How to Use This Guide
 
 Start with :doc:`installation` and :doc:`quickstart`.  For production runs,
 read :doc:`params`, :doc:`ps_files`, and :doc:`io_formats` before increasing
-the numerical resolution.  The :doc:`tutorials/index` section contains the
-end-to-end 3PCF and emulator workflows.  Developers should also consult
-:doc:`development` and :doc:`troubleshooting`.
+the numerical resolution.  The :doc:`tutorials/index` section begins with the
+standalone Colab comparison and continues through the end-to-end 3PCF and
+emulator workflows.  Developers should also consult :doc:`development` and
+:doc:`troubleshooting`.
 
 .. toctree::
    :maxdepth: 2
@@ -97,3 +109,5 @@ end-to-end 3PCF and emulator workflows.  Developers should also consult
    troubleshooting
    development
    citing
+
+.. _standalone four-model notebook: https://colab.research.google.com/github/sadirs/3ptWL-mod/blob/main/examples/3ptWL_mod_four_models_colab.ipynb

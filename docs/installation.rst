@@ -43,6 +43,11 @@ Verify the installation with:
 
    python3 -c "from wlcfpy import wlcf; print(wlcf)"
 
+For a no-clone interactive workflow, open the
+:doc:`tutorials/colab-four-models` notebook.  It performs the native dependency
+setup and pip installation inside a Google Colab runtime before comparing all
+four model branches.
+
 Clone the Repository
 --------------------
 

@@ -10,7 +10,9 @@ Python notebook. The example follows a complete workflow:
 4. Compare different theoretical models.
 
 The notebook associated with this tutorial can be used as a starting point
-for interactive runs and parameter exploration.
+for interactive runs and parameter exploration.  For a shorter workflow that
+does not require a repository checkout or CAMB, begin with the standalone
+:doc:`colab-four-models` notebook.
 
 Setting up the working directory
 --------------------------------
@@ -349,19 +351,19 @@ We can run several theoretical models by changing
     )
 
     models = {
-        1: "SPT",
-        2: "Tree",
-        3: "EFT",
-        4: "Halo_model"
+        1: ("SPT", "spt"),
+        2: ("Tree", "tree"),
+        3: ("EFT", "eft"),
+        4: ("Halo Model", "halo_model"),
     }
 
-    for tree_level, model_name in models.items():
+    for tree_level, (model_name, prefix_name) in models.items():
 
         print(f"Running {model_name} model with tree_level={tree_level}")
 
         params = base_params.copy()
         params["tree_level"] = tree_level
-        params["prefix"] = f"{model_name.lower()}_z05078_"
+        params["prefix"] = f"{prefix_name}_z05078_"
 
         w = wlcf()
         w.set(params)
@@ -452,6 +454,10 @@ We plot the different cases
 .. image:: ../images/models_3pcf.png
    :width: 100%
    :align: center
+
+The :doc:`colab-four-models` notebook packages this comparison into a
+standalone, directly executable workflow and also adds one-dimensional model
+slices.
 
 
 Emulator and MCMC notebooks
