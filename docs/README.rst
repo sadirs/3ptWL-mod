@@ -9,6 +9,9 @@ Project Team
 :Emulator workflow: Sadi Ramirez and contributors.
 :Repository: `Source code and issue tracking`_
 
+We acknowledge financial support from grants DGAPA-PAPIIT IA101825 and
+SECIHITI CBF2023-2024-162.
+
 Scientific Scope
 ~~~~~~~~~~~~~~~~
 
