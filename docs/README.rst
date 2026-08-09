@@ -1,17 +1,6 @@
 3ptWL-mod: Weak-Lensing Three-Point Modeling
 --------------------------------------------
 
-Project Team
-~~~~~~~~~~~~
-
-:Scientific authors: Alejandro Aviles, Juan Carlos Hidalgo, Eladio Moreno,
-   Gustavo Niz, Mario A. Rodriguez-Meza, Sofía Samario, and collaborators.
-:Emulator workflow: Sadi Ramirez and contributors.
-:Repository: `Source code and issue tracking`_
-
-We acknowledge financial support from grants DGAPA-PAPIIT IA101825 and
-SECIHITI CBF2023-2024-162.
-
 Scientific Scope
 ~~~~~~~~~~~~~~~~
 
@@ -26,18 +15,18 @@ power-spectrum-squared approximation, an effective-field-theory prescription,
 and a Takahashi/Halo-model inspired branch.  See :doc:`3pcf` for the scientific
 conventions and :doc:`params` for the run-time controls.
 
-Public Interfaces
-~~~~~~~~~~~~~~~~~
+Authors
+~~~~~~~
 
-The repository provides the ``wlcf`` command-line executable,
-``libwlcf.a`` static library, and ``wlcfpy`` Python extension.  These names are
-retained from the original ``wlcf`` project so existing analysis scripts can
-continue to use the public API while the repository name describes its
-scientific purpose more directly.
+* Alejandro Aviles (ICF-UNAM, Mexico), avilescervantes@gmail.com, aviles@icf.unam.mx
+* Juan Carlos Hidalgo (ICF-UNAM, Mexico)
+* Eladio Moreno (UGTO, Mexico)
+* Gustavo Niz (UGTO, Mexico)
+* Mario A. Rodriguez-Meza (ININ, Mexico)
+* Sofía Samario (ICF-UNAM, Mexico), ssamario@icf.unam.mx
+* Sadi Ramírez (ICF-UNAM, Mexico), sadi@icf.unam.mx
 
-All run products are written beneath ``rootDir`` and use ``prefix`` where
-applicable.  Typical products include the angular grid, 3PCF multipoles,
-bispectrum multipoles, background tables, and a complete used-parameter file.
+Repository: `Source code and issue tracking`_
 
 Related Projects
 ~~~~~~~~~~~~~~~~
@@ -74,6 +63,12 @@ License
 
 3ptWL-mod is distributed under the MIT license.  See :doc:`citing` for the
 scientific references and acknowledgement guidance.
+
+Acknowledgements
+~~~~~~~~~~~~~~~~
+
+We acknowledge financial support from grants DGAPA-PAPIIT IA101825 and
+SECIHITI CBF2023-2024-162.
 
 .. _Source code and issue tracking: https://github.com/sadirs/3ptWL-mod
 .. _3ptWL-cov: https://3ptwl-cov.readthedocs.io/en/latest/overview.html
