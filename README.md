@@ -22,14 +22,13 @@ Documentation: [3ptWL-mod on Read the Docs](https://3ptwl-mod.readthedocs.io/en/
 
 ## Authors
 
-- Alejandro Aviles, Juan Carlos Hidalgo, Eladio Moreno, Gustavo Niz, Mario A.
-  Rodriguez-Meza, Sofía Samario, and collaborators.
-
-## People who contributed
-
-The scientific code and documentation include contributions from Alejandro
-Aviles, Juan Carlos Hidalgo, Eladio Moreno, Gustavo Niz, Sadi Ramirez, Mario A.
-Rodriguez-Meza, Sofía Samario, and collaborators.
+- Alejandro Aviles (ICF-UNAM, Mexico), avilescervantes@gmail.com, aviles@icf.unam.mx
+- Juan Carlos Hidalgo
+- Eladio Moreno
+- Gustavo Niz
+- Mario A. Rodriguez-Meza
+- Sofía Samario (ICF-UNAM, Mexico), ssamario@icf.unam.mx
+- Sadi Ramírez (ICF-UNAM, Mexico), sadi@icf.unam.mx
 
 ## Install the Python package
 
