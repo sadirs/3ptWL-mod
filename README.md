@@ -8,16 +8,6 @@ convergence. The C pipeline projects matter-bispectrum models into
 \(\zeta_m(\theta_1,\theta_2)\) and supports perturbation-theory,
 effective-field-theory, and Takahashi/Halo-model inspired branches.
 
-The repository provides:
-
-- the `wlcf` command-line executable;
-- the `libwlcf.a` static library;
-- the `wlcfpy` Cython wrapper;
-- notebooks for 3PCF visualization and neural-network emulation.
-
-The executable and Python package retain their historical `wlcf` names for API
-compatibility. The repository name reflects the scientific role of the code.
-
 Documentation: [3ptWL-mod on Read the Docs](https://3ptwl-mod.readthedocs.io/en/latest/)
 
 ## Authors
