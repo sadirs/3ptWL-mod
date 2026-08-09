@@ -23,10 +23,10 @@ Documentation: [3ptWL-mod on Read the Docs](https://3ptwl-mod.readthedocs.io/en/
 ## Authors
 
 - Alejandro Aviles (ICF-UNAM, Mexico), avilescervantes@gmail.com, aviles@icf.unam.mx
-- Juan Carlos Hidalgo
-- Eladio Moreno
-- Gustavo Niz
-- Mario A. Rodriguez-Meza
+- Juan Carlos Hidalgo (ICF-UNAM, Mexico)
+- Eladio Moreno (UGTO, Mexico)
+- Gustavo Niz (UGTO, Mexico)
+- Mario A. Rodriguez-Meza (ININ, Mexico)
 - Sofía Samario (ICF-UNAM, Mexico), ssamario@icf.unam.mx
 - Sadi Ramírez (ICF-UNAM, Mexico), sadi@icf.unam.mx
 
