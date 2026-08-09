@@ -20,6 +20,17 @@ compatibility. The repository name reflects the scientific role of the code.
 
 Documentation: [3ptWL-mod on Read the Docs](https://3ptwl-mod.readthedocs.io/en/latest/)
 
+## Authors
+
+- Alejandro Aviles, Juan Carlos Hidalgo, Eladio Moreno, Gustavo Niz, Mario A.
+  Rodriguez-Meza, Sofía Samario, and collaborators.
+
+## People who contributed
+
+The scientific code and documentation include contributions from Alejandro
+Aviles, Juan Carlos Hidalgo, Eladio Moreno, Gustavo Niz, Sadi Ramirez, Mario A.
+Rodriguez-Meza, Sofía Samario, and collaborators.
+
 ## Install the Python package
 
 3ptWL-mod builds a native extension, so install a C compiler, GSL, FFTW3,
@@ -152,15 +163,10 @@ When the neural-network workflow is material to the analysis, also cite:
 Record the repository commit, compiler and dependency versions, and complete
 run parameters in scientific releases.
 
-## Contributors
+## License
 
-The scientific code and documentation include contributions from Alejandro
-Aviles, Juan Carlos Hidalgo, Eladio Moreno, Gustavo Niz, Sadi Ramirez, Mario A.
-Rodriguez-Meza, Sofía Samario, and collaborators.
+3ptWL-mod is distributed under the MIT license. See [LICENSE](https://github.com/sadirs/3ptWL-mod/blob/main/LICENSE).
 
-## License and acknowledgements
+## Acknowledgements
 
-3ptWL-mod is distributed under the [MIT license](LICENSE). The project uses or
-builds on FFTLog, BiHaloFit/Takahashi models, Zeno, Numerical Recipes, GSL, and
-CLASS. Alejandro Aviles acknowledges support by grants UNAM PAPIIT IA101825 and
-SECIHTI CBF2023-2024-162.
+We acknowledge financial support from grants DGAPA-PAPIIT IA101825 and SECIHITI CBF2023-2024-162.
