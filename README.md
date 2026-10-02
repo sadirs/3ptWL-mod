@@ -158,4 +158,4 @@ run parameters in scientific releases.
 
 ## Acknowledgements
 
-We acknowledge financial support from grants DGAPA-PAPIIT IA101825 and SECIHITI CBF2023-2024-162.
+We acknowledge financial support from grants DGAPA-PAPIIT IA101825 and SECIHITI CBF2023-2024-162, and from project UNAM-PAPIIT IN114626.

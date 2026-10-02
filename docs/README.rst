@@ -68,7 +68,7 @@ Acknowledgements
 ~~~~~~~~~~~~~~~~
 
 We acknowledge financial support from grants DGAPA-PAPIIT IA101825 and
-SECIHITI CBF2023-2024-162.
+SECIHITI CBF2023-2024-162, and from project UNAM-PAPIIT IN114626.
 
 .. _Source code and issue tracking: https://github.com/sadirs/3ptWL-mod
 .. _3ptWL-cov: https://3ptwl-cov.readthedocs.io/en/latest/overview.html
